@@ -9,6 +9,7 @@ from django.db.models.functions import Cast
 from django.utils.translation import gettext as _
 from django.utils.translation import override as override_language
 
+from zerver.lib import message_encryption
 from zerver.lib.types import EditHistoryEvent, StreamMessageEditRequest
 from zerver.lib.utils import assert_is_not_none
 from zerver.models import Message, Reaction, UserMessage, UserProfile
@@ -114,6 +115,7 @@ def get_latest_message_for_user_in_topic(
 
 
 def save_message_for_edit_use_case(message: Message) -> None:
+    original_fields = message_encryption.encrypt_message_fields_for_database(message)
     message.save(
         update_fields=[
             TOPIC_NAME,
@@ -128,6 +130,7 @@ def save_message_for_edit_use_case(message: Message) -> None:
             "recipient_id",
         ]
     )
+    message_encryption.restore_message_fields_after_database_write(message, original_fields)
 
 
 def user_message_exists_for_topic(

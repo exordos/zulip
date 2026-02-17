@@ -91,6 +91,7 @@ SHARED_SECRET = get_mandatory_secret("shared_secret")
 # that the owner of an email account has uploaded an avatar to Zulip, which isn't
 # the end of the world.  Don't use the salt where there is more security exposure.
 AVATAR_SALT = get_mandatory_secret("avatar_salt")
+MESSAGE_CONTENT_ENCRYPTION_KEY = get_mandatory_secret("message_content_encryption_key")
 
 # SERVER_GENERATION is used to track whether the server has been
 # restarted for triggering browser clients to reload.

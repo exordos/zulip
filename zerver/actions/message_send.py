@@ -53,6 +53,7 @@ from zerver.lib.message import (
     visibility_policy_for_send_message,
 )
 from zerver.lib.message_cache import MessageDict
+from zerver.lib import message_encryption
 from zerver.lib.muted_users import get_muting_users
 from zerver.lib.notification_data import (
     UserMessageNotificationsData,
@@ -879,7 +880,19 @@ def do_send_messages(
     # Save the message receipts in the database
     user_message_flags: dict[int, dict[int, list[str]]] = defaultdict(dict)
 
+    encrypted_message_fields = []
+    for send_request in send_message_requests:
+        encrypted_message_fields.append(
+            message_encryption.encrypt_message_fields_for_database(send_request.message)
+        )
+
     Message.objects.bulk_create(send_request.message for send_request in send_message_requests)
+
+    for send_request, original_fields in zip(send_message_requests, encrypted_message_fields):
+        message_encryption.restore_message_fields_after_database_write(
+            send_request.message,
+            original_fields,
+        )
 
     # Claim attachments in message
     for send_request in send_message_requests:
@@ -912,7 +925,14 @@ def do_send_messages(
                     send_request.message.rendered_content = new_rendered_content
                     update_fields.append("rendered_content")
 
+            original_fields = message_encryption.encrypt_message_fields_for_database(
+                send_request.message
+            )
             send_request.message.save(update_fields=update_fields)
+            message_encryption.restore_message_fields_after_database_write(
+                send_request.message,
+                original_fields,
+            )
 
     ums: list[UserMessageLite] = []
     for send_request in send_message_requests:
