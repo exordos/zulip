@@ -25,6 +25,7 @@ from zerver.actions.message_send import (
 )
 from zerver.actions.uploads import AttachmentChangeResult, check_attachment_reference_change
 from zerver.actions.user_topics import bulk_do_set_user_topic_visibility_policy
+from zerver.lib import message_encryption
 from zerver.lib import utils
 from zerver.lib.cache import cache_delete_many, to_dict_cache_key_id
 from zerver.lib.exceptions import (
@@ -476,7 +477,9 @@ def do_update_embedded_data(
         update_fields.append("rendered_content_version")
     else:
         message.rendered_content = rendered_content
+    original_fields = message_encryption.encrypt_message_fields_for_database(message)
     message.save(update_fields=update_fields)
+    message_encryption.restore_message_fields_after_database_write(message, original_fields)
 
     update_message_cache([message])
     event: dict[str, Any] = {
@@ -1876,4 +1879,6 @@ def re_thumbnail(
     else:
         assert isinstance(message, ArchivedMessage)
         message.rendered_content = new_content
+        original_fields = message_encryption.encrypt_message_fields_for_database(message)
         message.save(update_fields=["rendered_content"])
+        message_encryption.restore_message_fields_after_database_write(message, original_fields)

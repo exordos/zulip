@@ -15,6 +15,7 @@ from django.utils.translation import gettext_lazy
 from typing_extensions import override
 
 from zerver.lib.cache import flush_message, flush_submessage, flush_used_upload_space_cache
+from zerver.lib import message_encryption
 from zerver.models.clients import Client
 from zerver.models.constants import MAX_TOPIC_NAME_LENGTH
 from zerver.models.realms import Realm
@@ -117,6 +118,14 @@ class AbstractMessage(models.Model):
 
     class Meta:
         abstract = True
+
+    @classmethod
+    def from_db(
+        cls, db: str, field_names: list[str], values: list[Any]
+    ) -> "AbstractMessage":
+        message = super().from_db(db, field_names, values)
+        message_encryption.decrypt_message_fields(message)
+        return message
 
     @override
     def __str__(self) -> str:

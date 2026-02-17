@@ -20,6 +20,7 @@ from zerver.lib.exceptions import JsonableError, MissingAuthenticationError
 from zerver.lib.markdown import MessageRenderingResult
 from zerver.lib.mention import MentionData, sender_can_mention_group, silent_mention_syntax_for_user
 from zerver.lib.message_cache import MessageDict, extract_message_dict, stringify_message_dict
+from zerver.lib import message_encryption
 from zerver.lib.partial import partial
 from zerver.lib.request import RequestVariableConversionError
 from zerver.lib.stream_subscription import (
@@ -434,6 +435,7 @@ def access_message(
         user_group_membership_details=user_group_membership_details,
         is_modifying_message=is_modifying_message,
     ):
+        message_encryption.decrypt_message_fields(message)
         return message
     raise JsonableError(_("Invalid message(s)"))
 
@@ -477,6 +479,7 @@ def access_message_and_usermessage(
         user_group_membership_details=user_group_membership_details,
         is_modifying_message=is_modifying_message,
     ):
+        message_encryption.decrypt_message_fields(message)
         return (message, user_message)
     raise JsonableError(_("Invalid message(s)"))
 
@@ -519,6 +522,7 @@ def access_web_public_message(
     # Now that we've confirmed this message was sent to the target
     # web-public stream, we can return it as having been successfully
     # accessed.
+    message_encryption.decrypt_message_fields(message)
     return message
 
 

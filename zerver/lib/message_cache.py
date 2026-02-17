@@ -11,6 +11,7 @@ from zerver.lib.cache import cache_set_many, cache_with_key, to_dict_cache_key, 
 from zerver.lib.display_recipient import bulk_fetch_display_recipients
 from zerver.lib.markdown import render_message_markdown, topic_links
 from zerver.lib.markdown import version as markdown_version
+from zerver.lib import message_encryption
 from zerver.lib.query_helpers import query_for_ids
 from zerver.lib.timestamp import datetime_to_timestamp
 from zerver.lib.topic import DB_TOPIC_NAME, TOPIC_LINKS, TOPIC_NAME
@@ -35,6 +36,7 @@ def sew_messages_and_reactions(
     """
     # Add all messages with empty reaction item
     for message in messages:
+        message_encryption.decrypt_message_row(message)
         message["reactions"] = []
 
     # Convert list of messages into dictionary to make reaction stitching easy
@@ -51,6 +53,7 @@ def sew_messages_and_submessages(
 ) -> None:
     # This is super similar to sew_messages_and_reactions.
     for message in messages:
+        message_encryption.decrypt_message_row(message)
         message["submessages"] = []
 
     message_dict = {message["id"]: message for message in messages}
@@ -80,8 +83,13 @@ def update_message_cache(
 ) -> list[int]:
     """Updates the message as stored in the to_dict cache (for serving
     messages)."""
+    changed_messages_list = list(changed_messages)
+    for message in changed_messages_list:
+        message_encryption.decrypt_message_fields(message)
     items_for_remote_cache = {}
-    changed_messages_to_dict = MessageDict.messages_to_encoded_cache(changed_messages, realm_id)
+    changed_messages_to_dict = MessageDict.messages_to_encoded_cache(
+        changed_messages_list, realm_id
+    )
     for msg_id, msg in changed_messages_to_dict.items():
         items_for_remote_cache[to_dict_cache_key_id(msg_id)] = msg
 
@@ -96,7 +104,9 @@ def save_message_rendered_content(message: Message, content: str) -> str:
         rendered_content = rendering_result.rendered_content
     message.rendered_content = rendered_content
     message.rendered_content_version = markdown_version
+    original_fields = message_encryption.encrypt_message_fields_for_database(message)
     message.save_rendered_content()
+    message_encryption.restore_message_fields_after_database_write(message, original_fields)
     return rendered_content
 
 
@@ -302,6 +312,9 @@ class MessageDict:
                 return Stream.objects.get(id=message.recipient.type_id).realm_id
             return message.realm_id
 
+        for message in messages:
+            message_encryption.decrypt_message_fields(message)
+
         message_rows = [
             {
                 "id": message.id,
@@ -348,6 +361,8 @@ class MessageDict:
         ]
         # Uses index: zerver_message_pkey
         messages = Message.objects.filter(id__in=needed_ids).values(*fields)
+        for message in messages:
+            message_encryption.decrypt_message_row(message)
         MessageDict.sew_submessages_and_reactions_to_msgs(messages)
         return [MessageDict.build_dict_from_raw_db_row(row) for row in messages]
 
