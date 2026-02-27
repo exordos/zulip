@@ -409,7 +409,6 @@ def access_message(
         user_group_membership_details=user_group_membership_details,
         is_modifying_message=is_modifying_message,
     ):
-        message_encryption.decrypt_message_fields(message)
         return message
     raise JsonableError(_("Invalid message(s)"))
 
@@ -443,7 +442,6 @@ def access_message_and_usermessage(
         user_group_membership_details=user_group_membership_details,
         is_modifying_message=is_modifying_message,
     ):
-        message_encryption.decrypt_message_fields(message)
         return (message, user_message)
     raise JsonableError(_("Invalid message(s)"))
 
@@ -486,7 +484,6 @@ def access_web_public_message(
     # Now that we've confirmed this message was sent to the target
     # web-public stream, we can return it as having been successfully
     # accessed.
-    message_encryption.decrypt_message_fields(message)
     return message
 
 

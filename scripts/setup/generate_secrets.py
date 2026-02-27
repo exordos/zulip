@@ -3,6 +3,7 @@
 import base64
 import json
 import os
+import secrets
 import sys
 from contextlib import suppress
 
@@ -48,14 +49,10 @@ def random_token() -> str:
     # of importing cryptography modules when necessary.
     #
     # This helps optimize noop provision performance.
-    import secrets
-
     return secrets.token_hex(32)
 
 
 def generate_message_content_encryption_key() -> str:
-    import secrets
-
     return base64.b64encode(secrets.token_bytes(32)).decode("utf-8")
 
 

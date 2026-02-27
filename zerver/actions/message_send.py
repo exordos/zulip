@@ -926,14 +926,7 @@ def do_send_messages(
                     send_request.message.rendered_content = new_rendered_content
                     update_fields.append("rendered_content")
 
-            original_fields = message_encryption.encrypt_message_fields_for_database(
-                send_request.message
-            )
             send_request.message.save(update_fields=update_fields)
-            message_encryption.restore_message_fields_after_database_write(
-                send_request.message,
-                original_fields,
-            )
 
     ums: list[UserMessageLite] = []
     for send_request in send_message_requests:

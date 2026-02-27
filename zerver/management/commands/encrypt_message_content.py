@@ -73,39 +73,55 @@ class Command(zerver.lib.management.ZulipBaseCommand):
         updated_count = 0
         batch: list[zerver.models.messages.AbstractMessage] = []
 
-        queryset = model.objects.all().only(
+        queryset = model.raw_objects.values(
             "id",
             "content",
             "rendered_content",
             "edit_history",
-            "recipient",
+            "date_sent",
+            "recipient_id",
+            "recipient__type",
+            "recipient__type_id",
+            "realm_id",
             "sender_id",
+            "sender__realm_id",
         )
-        for message in queryset.iterator(chunk_size=batch_size):
-            if user_ids and not self._matches_user_ids(message, user_ids):
+        recipient_cache: dict[int, zerver.models.recipients.Recipient] = {}
+        for row in queryset.iterator(chunk_size=batch_size):
+            if user_ids and not self._matches_user_ids(row, user_ids, recipient_cache):
                 continue
             updated_fields: list[str] = []
 
-            encrypted_content = self._encrypt_if_needed(message.content)
-            if encrypted_content != message.content:
-                message.content = encrypted_content
+            associated_data = zerver.lib.message_encryption._get_row_associated_data(row)
+            encrypted_content = self._encrypt_if_needed(row["content"], associated_data)
+            if encrypted_content != row["content"]:
                 updated_fields.append("content")
 
-            encrypted_rendered = self._encrypt_if_needed(message.rendered_content)
-            if encrypted_rendered != message.rendered_content:
-                message.rendered_content = encrypted_rendered
+            encrypted_rendered = self._encrypt_if_needed(
+                row["rendered_content"],
+                associated_data,
+            )
+            if encrypted_rendered != row["rendered_content"]:
                 updated_fields.append("rendered_content")
 
-            if message.edit_history is not None:
+            encrypted_history = row["edit_history"]
+            if encrypted_history is not None:
                 encrypted_history = zerver.lib.message_encryption.encrypt_edit_history(
-                    message.edit_history
+                    encrypted_history,
+                    associated_data,
                 )
-                if encrypted_history != message.edit_history:
-                    message.edit_history = encrypted_history
+                if encrypted_history != row["edit_history"]:
                     updated_fields.append("edit_history")
 
             if updated_fields:
-                batch.append(message)
+                batch.append(
+                    model(
+                        id=row["id"],
+                        content=encrypted_content,
+                        rendered_content=encrypted_rendered,
+                        edit_history=encrypted_history,
+                    )
+                )
 
             if len(batch) >= batch_size:
                 updated_count += self._flush_batch(batch, dry_run)
@@ -122,7 +138,7 @@ class Command(zerver.lib.management.ZulipBaseCommand):
     ) -> int:
         if not dry_run:
             model = type(batch[0])
-            model.objects.bulk_update(
+            model.raw_objects.bulk_update(
                 batch,
                 ["content", "rendered_content", "edit_history"],
             )
@@ -130,12 +146,12 @@ class Command(zerver.lib.management.ZulipBaseCommand):
         batch.clear()
         return batch_size
 
-    def _encrypt_if_needed(self, value: str | None) -> str | None:
+    def _encrypt_if_needed(self, value: str | None, associated_data: bytes) -> str | None:
         if value is None:
             return None
         if value.startswith(zerver.lib.message_encryption.ENCRYPTED_MESSAGE_PREFIX):
             return value
-        return zerver.lib.message_encryption.encrypt_message_text(value)
+        return zerver.lib.message_encryption.encrypt_message_text(value, associated_data)
 
     def _parse_user_ids(self, raw_user_ids: str) -> set[int]:
         if not raw_user_ids:
@@ -151,15 +167,21 @@ class Command(zerver.lib.management.ZulipBaseCommand):
 
     def _matches_user_ids(
         self,
-        message: zerver.models.messages.AbstractMessage,
+        row: dict[str, typing.Any],
         user_ids: set[int],
+        recipient_cache: dict[int, zerver.models.recipients.Recipient],
     ) -> bool:
-        recipient = message.recipient
-        if recipient.type == recipients.Recipient.PERSONAL:
-            participant_ids = {message.sender_id, recipient.type_id}
-        elif recipient.type == recipients.Recipient.DIRECT_MESSAGE_GROUP:
+        recipient_type = row["recipient__type"]
+        if recipient_type == recipients.Recipient.PERSONAL:
+            participant_ids = {row["sender_id"], row["recipient__type_id"]}
+        elif recipient_type == recipients.Recipient.DIRECT_MESSAGE_GROUP:
+            recipient_id = row["recipient_id"]
+            recipient = recipient_cache.get(recipient_id)
+            if recipient is None:
+                recipient = recipients.Recipient.objects.get(id=recipient_id)
+                recipient_cache[recipient_id] = recipient
             participant_ids = set(recipients.get_direct_message_group_user_ids(recipient))
-            participant_ids.add(message.sender_id)
+            participant_ids.add(row["sender_id"])
         else:
             return False
 

@@ -1,17 +1,3 @@
-# Copyright (c) 2026 Genesis Corporation
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 from __future__ import annotations
 
 import typing
@@ -92,10 +78,13 @@ class Command(zerver.lib.management.ZulipBaseCommand):
             "content",
             "rendered_content",
             "edit_history",
+            "date_sent",
             "recipient_id",
             "recipient__type",
             "recipient__type_id",
+            "realm_id",
             "sender_id",
+            "sender__realm_id",
         )
         recipient_cache: dict[int, zerver.models.recipients.Recipient] = {}
         for row in queryset.iterator(chunk_size=batch_size):
@@ -104,18 +93,23 @@ class Command(zerver.lib.management.ZulipBaseCommand):
 
             updated_fields: list[str] = []
 
-            decrypted_content = self._decrypt_if_needed(row["content"])
+            associated_data = zerver.lib.message_encryption._get_row_associated_data(row)
+            decrypted_content = self._decrypt_if_needed(row["content"], associated_data)
             if decrypted_content != row["content"]:
                 updated_fields.append("content")
 
-            decrypted_rendered = self._decrypt_if_needed(row["rendered_content"])
+            decrypted_rendered = self._decrypt_if_needed(
+                row["rendered_content"],
+                associated_data,
+            )
             if decrypted_rendered != row["rendered_content"]:
                 updated_fields.append("rendered_content")
 
             decrypted_history = row["edit_history"]
             if decrypted_history is not None:
                 decrypted_history = zerver.lib.message_encryption.decrypt_edit_history(
-                    decrypted_history
+                    decrypted_history,
+                    associated_data,
                 )
                 if decrypted_history != row["edit_history"]:
                     updated_fields.append("edit_history")
@@ -145,7 +139,7 @@ class Command(zerver.lib.management.ZulipBaseCommand):
     ) -> int:
         if not dry_run:
             model = type(batch[0])
-            model.objects.bulk_update(
+            model.raw_objects.bulk_update(
                 batch,
                 ["content", "rendered_content", "edit_history"],
             )
@@ -153,12 +147,12 @@ class Command(zerver.lib.management.ZulipBaseCommand):
         batch.clear()
         return batch_size
 
-    def _decrypt_if_needed(self, value: str | None) -> str | None:
+    def _decrypt_if_needed(self, value: str | None, associated_data: bytes) -> str | None:
         if value is None:
             return None
         if not value.startswith(zerver.lib.message_encryption.ENCRYPTED_MESSAGE_PREFIX):
             return value
-        return zerver.lib.message_encryption.decrypt_message_text(value)
+        return zerver.lib.message_encryption.decrypt_message_text(value, associated_data)
 
     def _parse_user_ids(self, raw_user_ids: str) -> set[int]:
         if not raw_user_ids:
