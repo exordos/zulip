@@ -119,6 +119,13 @@ class AbstractMessage(models.Model):
     class Meta:
         abstract = True
 
+    @override
+    def __str__(self) -> str:
+        if not self.is_channel_message:
+            return f"{self.recipient.label()} /  / {self.sender!r}"
+
+        return f"{self.recipient.label()} / {self.subject} / {self.sender!r}"
+
     @classmethod
     def from_db(
         cls, db: str, field_names: list[str], values: list[Any]
@@ -126,13 +133,6 @@ class AbstractMessage(models.Model):
         message = super().from_db(db, field_names, values)
         message_encryption.decrypt_message_fields(message)
         return message
-
-    @override
-    def __str__(self) -> str:
-        if not self.is_channel_message:
-            return f"{self.recipient.label()} /  / {self.sender!r}"
-
-        return f"{self.recipient.label()} / {self.subject} / {self.sender!r}"
 
 
 class ArchiveTransaction(models.Model):

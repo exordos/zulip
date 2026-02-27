@@ -1,13 +1,13 @@
 import logging
 from collections import defaultdict
-from collections.abc import Callable, Collection, Sequence
-from collections.abc import Set as AbstractSet
+from collections.abc import Callable, Collection, Sequence, Set as AbstractSet
 from dataclasses import dataclass
 from datetime import timedelta
 from email.headerregistry import Address
 from typing import Any, Literal, TypedDict, cast
 
 import orjson
+
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
@@ -946,15 +946,16 @@ def do_send_messages(
     # Save the message receipts in the database
     user_message_flags: dict[int, dict[int, list[str]]] = defaultdict(dict)
 
-    encrypted_message_fields = []
-    for send_request in send_message_requests:
-        encrypted_message_fields.append(
-            message_encryption.encrypt_message_fields_for_database(send_request.message)
-        )
+    encrypted_message_fields = [
+        message_encryption.encrypt_message_fields_for_database(send_request.message)
+        for send_request in send_message_requests
+    ]
 
     Message.objects.bulk_create(send_request.message for send_request in send_message_requests)
 
-    for send_request, original_fields in zip(send_message_requests, encrypted_message_fields):
+    for send_request, original_fields in zip(
+        send_message_requests, encrypted_message_fields, strict=False
+    ):
         message_encryption.restore_message_fields_after_database_write(
             send_request.message,
             original_fields,
