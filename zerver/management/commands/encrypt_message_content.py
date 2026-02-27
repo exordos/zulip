@@ -1,17 +1,3 @@
-#    Copyright 2026 Genesis Corporation.
-#
-#    Licensed under the Apache License, Version 2.0 (the "License"); you may
-#    not use this file except in compliance with the License. You may obtain
-#    a copy of the License at
-#
-#         http://www.apache.org/licenses/LICENSE-2.0
-#
-#    Unless required by applicable law or agreed to in writing, software
-#    distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
-#    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
-#    License for the specific language governing permissions and limitations
-#    under the License.
-
 from __future__ import annotations
 
 import typing
@@ -21,6 +7,7 @@ import typing_extensions
 import zerver.lib.management
 import zerver.lib.message_encryption
 import zerver.models.messages
+from zerver.models import recipients
 
 
 class Command(zerver.lib.management.ZulipBaseCommand):
@@ -42,23 +29,35 @@ class Command(zerver.lib.management.ZulipBaseCommand):
             action="store_true",
             help="Report how many messages would be updated without saving changes.",
         )
+        parser.add_argument(
+            "--user-ids",
+            type=str,
+            default="",
+            help=(
+                "Comma-separated list of user IDs. When provided, only direct messages where "
+                "the sender or any recipient is in this list will be encrypted."
+            ),
+        )
 
     @typing_extensions.override
     def handle(self, *args: typing.Any, **options: typing.Any) -> None:
         batch_size = options["batch_size"]
         dry_run = options["dry_run"]
         skip_archived = options["skip_archived"]
+        user_ids = self._parse_user_ids(options["user_ids"])
 
         total_updated = self._encrypt_queryset(
             zerver.models.messages.Message,
             batch_size,
             dry_run,
+            user_ids,
         )
         if not skip_archived:
             total_updated += self._encrypt_queryset(
                 zerver.models.messages.ArchivedMessage,
                 batch_size,
                 dry_run,
+                user_ids,
             )
 
         action = "Would update" if dry_run else "Updated"
@@ -69,14 +68,22 @@ class Command(zerver.lib.management.ZulipBaseCommand):
         model: type[zerver.models.messages.AbstractMessage],
         batch_size: int,
         dry_run: bool,
+        user_ids: set[int],
     ) -> int:
         updated_count = 0
         batch: list[zerver.models.messages.AbstractMessage] = []
 
         queryset = model.objects.all().only(
-            "id", "content", "rendered_content", "edit_history"
+            "id",
+            "content",
+            "rendered_content",
+            "edit_history",
+            "recipient",
+            "sender_id",
         )
         for message in queryset.iterator(chunk_size=batch_size):
+            if user_ids and not self._matches_user_ids(message, user_ids):
+                continue
             updated_fields: list[str] = []
 
             encrypted_content = self._encrypt_if_needed(message.content)
@@ -129,3 +136,31 @@ class Command(zerver.lib.management.ZulipBaseCommand):
         if value.startswith(zerver.lib.message_encryption.ENCRYPTED_MESSAGE_PREFIX):
             return value
         return zerver.lib.message_encryption.encrypt_message_text(value)
+
+    def _parse_user_ids(self, raw_user_ids: str) -> set[int]:
+        if not raw_user_ids:
+            return set()
+
+        user_ids: set[int] = set()
+        for item in raw_user_ids.split(","):
+            cleaned = item.strip()
+            if not cleaned:
+                continue
+            user_ids.add(int(cleaned))
+        return user_ids
+
+    def _matches_user_ids(
+        self,
+        message: zerver.models.messages.AbstractMessage,
+        user_ids: set[int],
+    ) -> bool:
+        recipient = message.recipient
+        if recipient.type == recipients.Recipient.PERSONAL:
+            participant_ids = {message.sender_id, recipient.type_id}
+        elif recipient.type == recipients.Recipient.DIRECT_MESSAGE_GROUP:
+            participant_ids = set(recipients.get_direct_message_group_user_ids(recipient))
+            participant_ids.add(message.sender_id)
+        else:
+            return False
+
+        return bool(participant_ids.intersection(user_ids))
