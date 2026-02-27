@@ -7,12 +7,12 @@ from typing import Any, TypedDict
 
 import orjson
 
+from zerver.lib import message_encryption
 from zerver.lib.avatar import get_avatar_field, get_avatar_for_inaccessible_user
 from zerver.lib.cache import cache_set_many, cache_with_key, to_dict_cache_key, to_dict_cache_key_id
 from zerver.lib.display_recipient import bulk_fetch_display_recipients
 from zerver.lib.markdown import render_message_markdown, topic_links
 from zerver.lib.markdown import version as markdown_version
-from zerver.lib import message_encryption
 from zerver.lib.query_helpers import query_for_ids
 from zerver.lib.timestamp import datetime_to_timestamp
 from zerver.lib.topic import DB_TOPIC_NAME, TOPIC_LINKS, TOPIC_NAME

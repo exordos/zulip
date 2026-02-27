@@ -1,7 +1,6 @@
 import itertools
 from collections import defaultdict
-from collections.abc import Iterable
-from collections.abc import Set as AbstractSet
+from collections.abc import Iterable, Set as AbstractSet
 from dataclasses import dataclass
 from datetime import timedelta
 from typing import Any

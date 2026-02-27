@@ -8,9 +8,9 @@ from typing import Any, Final, Literal
 from urllib.parse import urljoin
 
 from scripts.lib.zulip_tools import get_tornado_ports
+from zerver.lib import crypto
 from zerver.lib.db import TimeTrackingConnection, TimeTrackingCursor
 from zerver.lib.types import AnalyticsDataUploadLevel
-from zerver.lib import crypto
 
 from .config import (
     DEPLOY_ROOT,

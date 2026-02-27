@@ -210,6 +210,5 @@ def decrypt_message_row(row: dict[str, typing.Any]) -> None:
         row["content"] = decrypt_message_text(row["content"])
     if "rendered_content" in row:
         row["rendered_content"] = decrypt_message_text_optional(row["rendered_content"])
-    if "edit_history" in row:
-        if row["edit_history"] is not None:
-            row["edit_history"] = decrypt_edit_history(row["edit_history"])
+    if "edit_history" in row and row["edit_history"] is not None:
+        row["edit_history"] = decrypt_edit_history(row["edit_history"])
