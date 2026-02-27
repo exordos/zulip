@@ -1,19 +1,3 @@
-#    Copyright 2026 Genesis Corporation.
-#
-#    All Rights Reserved.
-#
-#    Licensed under the Apache License, Version 2.0 (the "License"); you may
-#    not use this file except in compliance with the License. You may obtain
-#    a copy of the License at
-#
-#         http://www.apache.org/licenses/LICENSE-2.0
-#
-#    Unless required by applicable law or agreed to in writing, software
-#    distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
-#    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
-#    License for the specific language governing permissions and limitations
-#    under the License.
-
 from __future__ import annotations
 
 import base64
@@ -24,9 +8,52 @@ import django.conf
 import orjson
 
 from zerver.lib import crypto
+from zerver.models import recipients
+from zerver.models import users
 
 ENCRYPTED_MESSAGE_PREFIX = "enc:v1:"
 ENCRYPTED_MESSAGE_SEPARATOR = ":"
+
+
+def should_encrypt_message(message: typing.Any) -> bool:
+    if not django.conf.settings.MESSAGE_CONTENT_ENCRYPTION_ENABLED:
+        return False
+
+    if django.conf.settings.ENCRYPT_ALL_MESSAGES:
+        return True
+
+    participant_ids = _get_direct_message_participant_ids(message)
+    if not participant_ids:
+        return False
+
+    setting_user_ids = django.conf.settings.ENCRYPT_ALL_DIRECT_MESSAGE_FOR_USER_IDS
+    realm_user_ids = _get_realm_user_ids(message, setting_user_ids)
+    return bool(participant_ids.intersection(realm_user_ids))
+
+
+def _get_realm_user_ids(message: typing.Any, user_ids: list[int]) -> set[int]:
+    if not user_ids:
+        return set()
+
+    return set(
+        users.UserProfile.objects.filter(
+            id__in=user_ids,
+            realm_id=message.realm_id,
+        ).values_list("id", flat=True)
+    )
+
+
+def _get_direct_message_participant_ids(message: typing.Any) -> set[int]:
+    recipient = message.recipient
+    if recipient.type == recipients.Recipient.PERSONAL:
+        return {message.sender_id, recipient.type_id}
+
+    if recipient.type == recipients.Recipient.DIRECT_MESSAGE_GROUP:
+        participant_ids = set(recipients.get_direct_message_group_user_ids(recipient))
+        participant_ids.add(message.sender_id)
+        return participant_ids
+
+    return set()
 
 
 def _get_message_content_key() -> bytes:
@@ -156,6 +183,8 @@ def encrypt_message_fields_for_database(
     original_content = message.content
     original_rendered_content = message.rendered_content
     original_edit_history = message.edit_history
+    if not should_encrypt_message(message):
+        return original_content, original_rendered_content, original_edit_history
     message.content = encrypt_message_text(original_content)
     message.rendered_content = encrypt_message_text_optional(original_rendered_content)
     if original_edit_history is not None:

@@ -138,6 +138,11 @@ ERROR_REPORTING = True
 LOGGING_SHOW_MODULE = False
 LOGGING_SHOW_PID = False
 
+# Message encryption
+MESSAGE_CONTENT_ENCRYPTION_ENABLED = True
+ENCRYPT_ALL_MESSAGES = False
+ENCRYPT_ALL_DIRECT_MESSAGE_FOR_USER_IDS: list[int] = []
+
 # Sentry.io error defaults to off
 SENTRY_DSN: str | None = get_config("sentry", "project_dsn", None)
 SENTRY_TRACE_WORKER_RATE: float | dict[str, float] = 0.0
