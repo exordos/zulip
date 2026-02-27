@@ -84,8 +84,6 @@ def update_message_cache(
     """Updates the message as stored in the to_dict cache (for serving
     messages)."""
     changed_messages_list = list(changed_messages)
-    for message in changed_messages_list:
-        message_encryption.decrypt_message_fields(message)
     items_for_remote_cache = {}
     changed_messages_to_dict = MessageDict.messages_to_encoded_cache(
         changed_messages_list, realm_id
@@ -104,9 +102,7 @@ def save_message_rendered_content(message: Message, content: str) -> str:
         rendered_content = rendering_result.rendered_content
     message.rendered_content = rendered_content
     message.rendered_content_version = markdown_version
-    original_fields = message_encryption.encrypt_message_fields_for_database(message)
     message.save_rendered_content()
-    message_encryption.restore_message_fields_after_database_write(message, original_fields)
     return rendered_content
 
 
@@ -311,9 +307,6 @@ class MessageDict:
             if message.recipient.type == Recipient.STREAM:
                 return Stream.objects.get(id=message.recipient.type_id).realm_id
             return message.realm_id
-
-        for message in messages:
-            message_encryption.decrypt_message_fields(message)
 
         message_rows = [
             {

@@ -477,9 +477,7 @@ def do_update_embedded_data(
         update_fields.append("rendered_content_version")
     else:
         message.rendered_content = rendered_content
-    original_fields = message_encryption.encrypt_message_fields_for_database(message)
     message.save(update_fields=update_fields)
-    message_encryption.restore_message_fields_after_database_write(message, original_fields)
 
     update_message_cache([message])
     event: dict[str, Any] = {
@@ -1879,6 +1877,4 @@ def re_thumbnail(
     else:
         assert isinstance(message, ArchivedMessage)
         message.rendered_content = new_content
-        original_fields = message_encryption.encrypt_message_fields_for_database(message)
         message.save(update_fields=["rendered_content"])
-        message_encryption.restore_message_fields_after_database_write(message, original_fields)

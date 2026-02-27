@@ -115,7 +115,6 @@ def get_latest_message_for_user_in_topic(
 
 
 def save_message_for_edit_use_case(message: Message) -> None:
-    original_fields = message_encryption.encrypt_message_fields_for_database(message)
     message.save(
         update_fields=[
             TOPIC_NAME,
@@ -130,7 +129,6 @@ def save_message_for_edit_use_case(message: Message) -> None:
             "recipient_id",
         ]
     )
-    message_encryption.restore_message_fields_after_database_write(message, original_fields)
 
 
 def user_message_exists_for_topic(
