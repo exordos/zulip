@@ -91,6 +91,17 @@ PUSH_REGISTRATION_LIVENESS_TIMEOUT = 24 * 60 * 60
 DeviceToken: TypeAlias = Union[PushDeviceToken, "RemotePushDeviceToken"]
 
 
+def replace_push_notification_keywords(text: str) -> str:
+    replacements = settings.PUSH_NOTIFICATION_KEYWORD_REPLACEMENTS
+    if not replacements:
+        return text
+
+    for pattern, replacement in replacements:
+        text = re.sub(pattern, replacement, text, flags=re.IGNORECASE)
+
+    return text
+
+
 def validate_token(token_str: str, kind: int) -> None:
     if token_str == "" or len(token_str) > 4096:
         raise JsonableError(_("Empty or invalid length token"))
@@ -566,6 +577,16 @@ def send_notifications_to_bouncer(
     apple_devices: Sequence[DeviceToken],
 ) -> None:
     assert len(android_devices) + len(apple_devices) != 0
+
+    if apns_payload.get("alert", {}).get("title", "").startswith("#"):
+        if "title" in apns_payload.get("alert", {}):
+            apns_payload["alert"]["title"] = replace_push_notification_keywords(
+                apns_payload["alert"]["title"]
+            )
+        if "stream" in gcm_payload:
+            gcm_payload["stream"] = replace_push_notification_keywords(gcm_payload["stream"])
+        if "topic" in gcm_payload:
+            gcm_payload["topic"] = replace_push_notification_keywords(gcm_payload["topic"])
 
     post_data = {
         "user_uuid": str(user_profile.uuid),

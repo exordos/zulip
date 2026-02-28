@@ -76,6 +76,12 @@ AUTH_LDAP_ADVANCED_REALM_ACCESS_CONTROL: dict[str, Any] | None = None
 LDAP_SYNCHRONIZED_GROUPS_BY_REALM: dict[str, list[str]] = {}
 AUTH_LDAP_GROUP_TYPE: LDAPGroupType = GroupOfUniqueNamesType()
 
+# Keyword replacements in push notification titles for stream topics.
+PUSH_NOTIFICATION_KEYWORD_REPLACEMENTS: list[tuple[str, str]] = [
+    (r"\\bexample\\b", "Example"),
+    (r"sample", "Sample"),
+]
+
 # Social auth; we support providing values for some of these
 # settings in zulip-secrets.conf instead of settings.py in development.
 SOCIAL_AUTH_GITHUB_KEY = get_secret("social_auth_github_key", development_only=True)
