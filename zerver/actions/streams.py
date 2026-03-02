@@ -262,12 +262,12 @@ def do_unarchive_stream(stream: Stream, new_name: str, *, acting_user: UserProfi
 
     # Update caches
     cache_set(display_recipient_cache_key(stream.recipient_id), new_name)
-    messages = Message.objects.filter(
+    message_ids = Message.objects.filter(
         # Uses index: zerver_message_realm_recipient_id
         realm_id=realm.id,
         recipient_id=stream.recipient_id,
-    ).only("id")
-    cache_delete_many(to_dict_cache_key_id(message.id) for message in messages)
+    ).values_list("id", flat=True)
+    cache_delete_many(to_dict_cache_key_id(message_id) for message_id in message_ids)
 
     # Unset the is_web_public and is_realm_public cache on attachments,
     # since the stream is now private.
@@ -1510,18 +1510,18 @@ def do_rename_stream(stream: Stream, new_name: str, user_profile: UserProfile) -
 
     assert stream.recipient_id is not None
     recipient_id: int = stream.recipient_id
-    messages = Message.objects.filter(
+    message_ids = Message.objects.filter(
         # Uses index: zerver_message_realm_recipient_id
         realm_id=stream.realm_id,
         recipient_id=recipient_id,
-    ).only("id")
+    ).values_list("id", flat=True)
 
     cache_set(display_recipient_cache_key(recipient_id), stream.name)
 
     # Delete cache entries for everything else, which is cheaper and
     # clearer than trying to set them. display_recipient is the out of
     # date field in all cases.
-    cache_delete_many(to_dict_cache_key_id(message.id) for message in messages)
+    cache_delete_many(to_dict_cache_key_id(message_id) for message_id in message_ids)
 
     # We want to key these updates by id, not name, since id is
     # the immutable primary key, and obviously name is not.
