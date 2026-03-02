@@ -233,7 +233,12 @@ def update_messages_for_topic_edit(
     message_ids = [edited_message.id, *messages.values_list("id", flat=True)]
 
     def propagate() -> QuerySet[Message]:
-        messages.update(**update_fields)
+        update_fields_without_history = dict(update_fields)
+        update_fields_without_history.pop("edit_history")
+        messages.update(**update_fields_without_history)
+        for message in Message.objects.filter(id__in=message_ids):
+            update_edit_history(message, last_edit_time, edit_history_event)
+            message.save(update_fields=["edit_history", "last_edit_time"])
         return Message.objects.filter(id__in=message_ids).select_related(
             *Message.DEFAULT_SELECT_RELATED
         )
