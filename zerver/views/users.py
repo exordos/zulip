@@ -40,6 +40,7 @@ from zerver.actions.users import (
 from zerver.context_processors import get_valid_realm_from_request
 from zerver.decorator import require_member_or_admin, require_realm_admin
 from zerver.forms import PASSWORD_TOO_WEAK_ERROR, CreateUserForm
+from zerver.lib import api_keys
 from zerver.lib.avatar import avatar_url, get_avatar_for_inaccessible_user, get_gravatar_url
 from zerver.lib.bot_config import set_bot_config
 from zerver.lib.email_validation import email_allowed_for_realm, validate_email_not_already_in_realm
@@ -685,7 +686,7 @@ def add_bot_backend(
 
     notify_created_bot(bot_profile)
 
-    api_key = bot_profile.api_key
+    api_key = api_keys.get_user_api_key(bot_profile)
 
     json_result = dict(
         user_id=bot_profile.id,
@@ -713,7 +714,7 @@ def get_bots_backend(request: HttpRequest, user_profile: UserProfile) -> HttpRes
         # Bots are supposed to have only one API key, at least for now.
         # Therefore we can safely assume that one and only valid API key will be
         # the first one.
-        api_key = bot_profile.api_key
+        api_key = api_keys.get_user_api_key(bot_profile)
 
         return dict(
             username=bot_profile.email,

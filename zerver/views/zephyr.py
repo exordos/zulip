@@ -11,6 +11,7 @@ from django.http import HttpRequest, HttpResponse
 from django.utils.translation import gettext as _
 
 from zerver.decorator import authenticated_json_view
+from zerver.lib import api_keys
 from zerver.lib.ccache import make_ccache
 from zerver.lib.exceptions import JsonableError
 from zerver.lib.pysa import mark_sanitized
@@ -62,7 +63,7 @@ def webathena_kerberos_login(
 
     # TODO: Send these data via (say) RabbitMQ
     try:
-        api_key = user_profile.api_key
+        api_key = api_keys.get_user_api_key(user_profile)
         command = [
             "/home/zulip/python-zulip-api/zulip/integrations/zephyr/process_ccache",
             user,

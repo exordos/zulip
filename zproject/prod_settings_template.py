@@ -829,6 +829,9 @@ SOCIAL_AUTH_SAML_SUPPORT_CONTACT = {
 ## path.  For that reason, we recommend replacing /home/zulip/uploads
 ## with a symlink instead of changing LOCAL_UPLOADS_DIR.
 LOCAL_UPLOADS_DIR = "/home/zulip/uploads"
+
+## Directory for encrypted API key storage files.
+API_KEY_STORAGE_DIR = "/home/zulip/storage/keys/"
 # S3_AUTH_UPLOADS_BUCKET = ""
 # S3_AVATAR_BUCKET = ""
 # S3_EXPORT_BUCKET = ""

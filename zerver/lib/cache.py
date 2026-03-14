@@ -20,6 +20,7 @@ from django.db.models import Q, QuerySet
 from typing_extensions import ParamSpec
 
 from scripts.lib.zulip_tools import DEPLOYMENTS_DIR, get_recent_deployments
+from zerver.lib import api_keys
 
 if TYPE_CHECKING:
     # These modules have to be imported for type annotations but
@@ -474,7 +475,8 @@ def user_profile_narrow_by_id_cache_key(user_profile_id: int) -> str:
 
 
 def user_profile_by_api_key_cache_key(api_key: str) -> str:
-    return f"user_profile_by_api_key:{api_key}"
+    api_key_hash = api_keys.get_api_key_hash_for_storage(api_key)
+    return f"user_profile_by_api_key:{api_key_hash}"
 
 
 def get_cross_realm_dicts_key() -> str:
