@@ -26,6 +26,7 @@ from zerver.actions.users import (
     get_service_dicts_for_bot,
     send_update_events_for_anonymous_group_settings,
 )
+from zerver.lib import api_keys
 from zerver.lib.avatar import avatar_url
 from zerver.lib.create_user import create_user
 from zerver.lib.default_streams import get_slim_realm_default_streams
@@ -488,7 +489,7 @@ def created_bot_event(user_profile: UserProfile) -> dict[str, Any]:
         full_name=user_profile.full_name,
         bot_type=user_profile.bot_type,
         is_active=user_profile.is_active,
-        api_key=user_profile.api_key,
+        api_key=api_keys.get_user_api_key(user_profile),
         default_sending_stream=default_sending_stream_name,
         default_events_register_stream=default_events_register_stream_name,
         default_all_public_streams=user_profile.default_all_public_streams,
@@ -659,6 +660,7 @@ def do_create_user(
             add_initial_stream_subscriptions=add_initial_stream_subscriptions,
         )
 
+    api_keys.ensure_api_key_storage(user_profile)
     return user_profile
 
 
@@ -734,24 +736,7 @@ def do_reactivate_user(user_profile: UserProfile, *, acting_user: UserProfile | 
     )
     maybe_enqueue_audit_log_upload(user_profile.realm)
 
-    bot_owner_changed = False
-    if (
-        user_profile.is_bot
-        and user_profile.bot_owner is not None
-        and not user_profile.bot_owner.is_active
-        and acting_user is not None
-    ):
-        previous_owner = user_profile.bot_owner
-        user_profile.bot_owner = acting_user
-        user_profile.save()  # Can't use update_fields because of how the foreign key works.
-        RealmAuditLog.objects.create(
-            realm=user_profile.realm,
-            acting_user=acting_user,
-            modified_user=user_profile,
-            event_type=AuditLogEventType.USER_BOT_OWNER_CHANGED,
-            event_time=event_time,
-        )
-        bot_owner_changed = True
+    api_keys.ensure_api_key_storage(user_profile)
 
     if settings.BILLING_ENABLED:
         from corporate.lib.stripe import RealmBillingSession

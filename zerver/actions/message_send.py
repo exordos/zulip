@@ -1,13 +1,13 @@
-import logging
 from collections import defaultdict
-from collections.abc import Callable, Collection, Sequence
-from collections.abc import Set as AbstractSet
+from collections.abc import Callable, Collection, Sequence, Set as AbstractSet
 from dataclasses import dataclass
 from datetime import timedelta
 from email.headerregistry import Address
+import logging
 from typing import Any, TypedDict
 
 import orjson
+
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
@@ -53,6 +53,7 @@ from zerver.lib.message import (
     visibility_policy_for_send_message,
 )
 from zerver.lib.message_cache import MessageDict
+from zerver.lib import message_encryption
 from zerver.lib.muted_users import get_muting_users
 from zerver.lib.notification_data import (
     UserMessageNotificationsData,
@@ -879,7 +880,20 @@ def do_send_messages(
     # Save the message receipts in the database
     user_message_flags: dict[int, dict[int, list[str]]] = defaultdict(dict)
 
+    encrypted_message_fields = [
+        message_encryption.encrypt_message_fields_for_database(send_request.message)
+        for send_request in send_message_requests
+    ]
+
     Message.objects.bulk_create(send_request.message for send_request in send_message_requests)
+
+    for send_request, original_fields in zip(
+        send_message_requests, encrypted_message_fields, strict=False
+    ):
+        message_encryption.restore_message_fields_after_database_write(
+            send_request.message,
+            original_fields,
+        )
 
     # Claim attachments in message
     for send_request in send_message_requests:

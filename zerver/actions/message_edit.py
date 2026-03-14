@@ -1,7 +1,6 @@
 import itertools
 from collections import defaultdict
-from collections.abc import Iterable
-from collections.abc import Set as AbstractSet
+from collections.abc import Iterable, Set as AbstractSet
 from dataclasses import dataclass
 from datetime import timedelta
 from typing import Any
@@ -25,6 +24,7 @@ from zerver.actions.message_send import (
 )
 from zerver.actions.uploads import AttachmentChangeResult, check_attachment_reference_change
 from zerver.actions.user_topics import bulk_do_set_user_topic_visibility_policy
+from zerver.lib import message_encryption
 from zerver.lib import utils
 from zerver.lib.exceptions import (
     JsonableError,

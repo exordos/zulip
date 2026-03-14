@@ -1,6 +1,7 @@
 import time
 from datetime import timedelta
 from typing import Any
+import typing
 
 from bitfield import BitField
 from bitfield.types import Bit, BitHandler
@@ -15,11 +16,34 @@ from django.utils.translation import gettext_lazy
 from typing_extensions import override
 
 from zerver.lib.cache import flush_message, flush_submessage, flush_used_upload_space_cache
+from zerver.lib import message_encryption
 from zerver.models.clients import Client
 from zerver.models.constants import MAX_TOPIC_NAME_LENGTH
 from zerver.models.realms import Realm
 from zerver.models.recipients import Recipient
 from zerver.models.users import UserProfile
+
+
+SENSITIVE_MESSAGE_FIELDS = frozenset({"content", "rendered_content", "edit_history"})
+
+
+class MessageQuerySet(QuerySet):
+    def _raise_on_sensitive_fields(self, fields: typing.Iterable[str]) -> None:
+        if SENSITIVE_MESSAGE_FIELDS.intersection(fields):
+            raise RuntimeError("Use message_encryption helpers to update message content fields.")
+
+    def update(self, **kwargs: typing.Any) -> int:
+        self._raise_on_sensitive_fields(kwargs.keys())
+        return super().update(**kwargs)
+
+    def bulk_update(
+        self,
+        objs: list[models.Model],
+        fields: list[str],
+        batch_size: int | None = None,
+    ) -> int:
+        self._raise_on_sensitive_fields(fields)
+        return super().bulk_update(objs, fields, batch_size=batch_size)
 
 
 class AbstractMessage(models.Model):
@@ -115,8 +139,58 @@ class AbstractMessage(models.Model):
     # If the message is a channel message (as opposed to a DM or group-DM)
     is_channel_message = models.BooleanField(default=True, db_index=True)
 
+    objects = MessageQuerySet.as_manager()
+    raw_objects = models.Manager()
+
     class Meta:
         abstract = True
+
+    @override
+    def save(self, *args: typing.Any, **kwargs: typing.Any) -> None:
+        update_fields = kwargs.get("update_fields")
+        sensitive_fields: set[str]
+        if update_fields is None:
+            sensitive_fields = set(SENSITIVE_MESSAGE_FIELDS)
+        else:
+            sensitive_fields = set(update_fields) & SENSITIVE_MESSAGE_FIELDS
+
+        if not sensitive_fields or not message_encryption.should_encrypt_message(self):
+            super().save(*args, **kwargs)
+            return
+
+        associated_data = message_encryption._get_message_associated_data(self)
+        original_values: dict[str, str | None] = {}
+        try:
+            if "content" in sensitive_fields:
+                original_values["content"] = self.content
+                if not self.content.startswith(message_encryption.ENCRYPTED_MESSAGE_PREFIX):
+                    self.content = message_encryption.encrypt_message_text(
+                        self.content,
+                        associated_data,
+                    )
+            if "rendered_content" in sensitive_fields:
+                original_values["rendered_content"] = self.rendered_content
+                if (
+                    self.rendered_content is not None
+                    and not self.rendered_content.startswith(
+                        message_encryption.ENCRYPTED_MESSAGE_PREFIX
+                    )
+                ):
+                    self.rendered_content = message_encryption.encrypt_message_text(
+                        self.rendered_content,
+                        associated_data,
+                    )
+            if "edit_history" in sensitive_fields:
+                original_values["edit_history"] = self.edit_history
+                if self.edit_history is not None:
+                    self.edit_history = message_encryption.encrypt_edit_history(
+                        self.edit_history,
+                        associated_data,
+                    )
+            super().save(*args, **kwargs)
+        finally:
+            for field_name, value in original_values.items():
+                setattr(self, field_name, value)
 
     @override
     def __str__(self) -> str:
@@ -124,6 +198,14 @@ class AbstractMessage(models.Model):
             return f"{self.recipient.label()} /  / {self.sender!r}"
 
         return f"{self.recipient.label()} / {self.subject} / {self.sender!r}"
+
+    @classmethod
+    def from_db(
+        cls, db: str, field_names: list[str], values: list[Any]
+    ) -> "AbstractMessage":
+        message = super().from_db(db, field_names, values)
+        message_encryption.decrypt_message_fields(message)
+        return message
 
 
 class ArchiveTransaction(models.Model):

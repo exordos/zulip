@@ -8,6 +8,7 @@ from typing import Any, Final, Literal
 from urllib.parse import urljoin
 
 from scripts.lib.zulip_tools import get_tornado_ports
+from zerver.lib import crypto
 from zerver.lib.db import TimeTrackingConnection, TimeTrackingCursor
 from zerver.lib.types import AnalyticsDataUploadLevel
 
@@ -91,6 +92,12 @@ SHARED_SECRET = get_mandatory_secret("shared_secret")
 # that the owner of an email account has uploaded an avatar to Zulip, which isn't
 # the end of the world.  Don't use the salt where there is more security exposure.
 AVATAR_SALT = get_mandatory_secret("avatar_salt")
+if PRODUCTION:  # nocoverage
+    MESSAGE_CONTENT_ENCRYPTION_KEY = get_mandatory_secret("message_content_encryption_key")
+else:
+    MESSAGE_CONTENT_ENCRYPTION_KEY = get_secret("message_content_encryption_key", "")
+    if not MESSAGE_CONTENT_ENCRYPTION_KEY:
+        MESSAGE_CONTENT_ENCRYPTION_KEY = crypto.generate_key_base64()[1]
 
 # SERVER_GENERATION is used to track whether the server has been
 # restarted for triggering browser clients to reload.

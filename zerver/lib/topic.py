@@ -9,6 +9,7 @@ from django.db.models.functions import Cast
 from django.utils.translation import gettext as _
 from django.utils.translation import override as override_language
 
+from zerver.lib import message_encryption
 from zerver.lib.types import EditHistoryEvent, StreamMessageEditRequest
 from zerver.lib.utils import assert_is_not_none
 from zerver.models import Message, Reaction, UserMessage, UserProfile
@@ -232,7 +233,12 @@ def update_messages_for_topic_edit(
     message_ids = [edited_message.id, *messages.values_list("id", flat=True)]
 
     def propagate() -> QuerySet[Message]:
-        messages.update(**update_fields)
+        update_fields_without_history = dict(update_fields)
+        update_fields_without_history.pop("edit_history")
+        messages.update(**update_fields_without_history)
+        for message in Message.objects.filter(id__in=message_ids):
+            update_edit_history(message, last_edit_time, edit_history_event)
+            message.save(update_fields=["edit_history", "last_edit_time"])
         return Message.objects.filter(id__in=message_ids).select_related(
             *Message.DEFAULT_SELECT_RELATED
         )

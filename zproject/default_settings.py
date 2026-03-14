@@ -76,6 +76,12 @@ AUTH_LDAP_ADVANCED_REALM_ACCESS_CONTROL: dict[str, Any] | None = None
 LDAP_SYNCHRONIZED_GROUPS_BY_REALM: dict[str, list[str]] = {}
 AUTH_LDAP_GROUP_TYPE: LDAPGroupType = GroupOfUniqueNamesType()
 
+# Keyword replacements in push notification titles for stream topics.
+PUSH_NOTIFICATION_KEYWORD_REPLACEMENTS: list[tuple[str, str]] = [
+    (r"\\bexample\\b", "Example"),
+    (r"sample", "Sample"),
+]
+
 # Social auth; we support providing values for some of these
 # settings in zulip-secrets.conf instead of settings.py in development.
 SOCIAL_AUTH_GITHUB_KEY = get_secret("social_auth_github_key", development_only=True)
@@ -137,6 +143,12 @@ EMAIL_GATEWAY_EXTRA_PATTERN_HACK: str | None = None
 ERROR_REPORTING = True
 LOGGING_SHOW_MODULE = False
 LOGGING_SHOW_PID = False
+
+# Message encryption
+MESSAGE_CONTENT_ENCRYPTION_ENABLED = True
+ENCRYPT_ALL_MESSAGES = False
+ENCRYPT_ALL_DIRECT_MESSAGE_FOR_USER_IDS: list[int] = []
+API_KEY_STORAGE_DIR = "/home/zulip/storage/keys/"
 
 # Sentry.io error defaults to off
 SENTRY_DSN: str | None = get_config("sentry", "project_dsn", None)

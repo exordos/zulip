@@ -8,6 +8,7 @@ from django.views.decorators.csrf import csrf_exempt
 
 from zerver.context_processors import get_realm_from_request
 from zerver.decorator import do_login, require_post
+from zerver.lib import api_keys
 from zerver.lib.exceptions import (
     AuthenticationFailedError,
     InvalidSubdomainError,
@@ -136,7 +137,7 @@ def api_dev_fetch_api_key(request: HttpRequest, *, username: str) -> HttpRespons
     assert isinstance(user_profile, UserProfile)
 
     do_login(request, user_profile)
-    api_key = user_profile.api_key
+    api_key = api_keys.get_user_api_key(user_profile)
     return json_success(
         request,
         data={"api_key": api_key, "email": user_profile.delivery_email, "user_id": user_profile.id},

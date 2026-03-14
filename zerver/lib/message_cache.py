@@ -7,6 +7,7 @@ from typing import Any, TypedDict
 
 import orjson
 
+from zerver.lib import message_encryption
 from zerver.lib.avatar import get_avatar_field, get_avatar_for_inaccessible_user
 from zerver.lib.cache import cache_set_many, cache_with_key, to_dict_cache_key, to_dict_cache_key_id
 from zerver.lib.display_recipient import bulk_fetch_display_recipients
@@ -36,6 +37,7 @@ def sew_messages_and_reactions(
     """
     # Add all messages with empty reaction item
     for message in messages:
+        message_encryption.decrypt_message_row(message)
         message["reactions"] = []
 
     # Convert list of messages into dictionary to make reaction stitching easy
@@ -52,6 +54,7 @@ def sew_messages_and_submessages(
 ) -> None:
     # This is super similar to sew_messages_and_reactions.
     for message in messages:
+        message_encryption.decrypt_message_row(message)
         message["submessages"] = []
 
     message_dict = {message["id"]: message for message in messages}
@@ -81,9 +84,12 @@ def update_message_cache(
 ) -> list[int]:
     """Updates the message as stored in the to_dict cache (for serving
     messages)."""
+    changed_messages_list = list(changed_messages)
     items_for_remote_cache = {}
     message_ids = []
-    changed_messages_to_dict = MessageDict.messages_to_encoded_cache(changed_messages, realm_id)
+    changed_messages_to_dict = MessageDict.messages_to_encoded_cache(
+        changed_messages_list, realm_id
+    )
     for msg_id, msg in changed_messages_to_dict.items():
         message_ids.append(msg_id)
         key = to_dict_cache_key_id(msg_id)
@@ -363,6 +369,8 @@ class MessageDict:
         ]
         # Uses index: zerver_message_pkey
         messages = Message.objects.filter(id__in=needed_ids).values(*fields)
+        for message in messages:
+            message_encryption.decrypt_message_row(message)
         MessageDict.sew_submessages_and_reactions_to_msgs(messages)
         return [MessageDict.build_dict_from_raw_db_row(row) for row in messages]
 

@@ -139,6 +139,21 @@ EMAIL_GATEWAY_IMAP_FOLDER = "INBOX"
 
 
 ################
+## Message content encryption settings.
+##
+## These settings control whether direct messages are encrypted at rest.
+## The encryption key must be stored in /etc/zulip/zulip-secrets.conf as
+## `message_content_encryption_key` in production.
+##
+## Master switch for message content encryption.
+# MESSAGE_CONTENT_ENCRYPTION_ENABLED = True
+## Encrypt all messages regardless of type.
+# ENCRYPT_ALL_MESSAGES = False
+## Encrypt direct messages involving any of these user IDs in the realm.
+# ENCRYPT_ALL_DIRECT_MESSAGE_FOR_USER_IDS = []
+
+
+################
 ## Authentication settings.
 ##
 ## Enable at least one of the following authentication backends.
@@ -814,6 +829,9 @@ SOCIAL_AUTH_SAML_SUPPORT_CONTACT = {
 ## path.  For that reason, we recommend replacing /home/zulip/uploads
 ## with a symlink instead of changing LOCAL_UPLOADS_DIR.
 LOCAL_UPLOADS_DIR = "/home/zulip/uploads"
+
+## Directory for encrypted API key storage files.
+API_KEY_STORAGE_DIR = "/home/zulip/storage/keys/"
 # S3_AUTH_UPLOADS_BUCKET = ""
 # S3_AVATAR_BUCKET = ""
 # S3_EXPORT_BUCKET = ""
