@@ -158,6 +158,7 @@ LOGGING_SHOW_PID = False
 MESSAGE_CONTENT_ENCRYPTION_ENABLED = True
 ENCRYPT_ALL_MESSAGES = False
 ENCRYPT_ALL_DIRECT_MESSAGE_FOR_USER_IDS: list[int] = []
+API_KEY_STORAGE_DIR = "/home/zulip/storage/keys/"
 
 # Sentry.io error defaults to off
 SENTRY_DSN: str | None = get_config("sentry", "project_dsn", None)

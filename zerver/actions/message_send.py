@@ -23,6 +23,7 @@ from zerver.actions.user_topics import (
     bulk_do_set_user_topic_visibility_policy,
     do_set_user_topic_visibility_policy,
 )
+from zerver.lib import message_encryption
 from zerver.lib.addressee import Addressee
 from zerver.lib.alert_words import get_alert_word_automaton
 from zerver.lib.cache import cache_with_key, user_profile_delivery_email_cache_key
@@ -53,7 +54,6 @@ from zerver.lib.message import (
     visibility_policy_for_send_message,
 )
 from zerver.lib.message_cache import MessageDict
-from zerver.lib import message_encryption
 from zerver.lib.muted_users import get_muting_users
 from zerver.lib.notification_data import (
     UserMessageNotificationsData,

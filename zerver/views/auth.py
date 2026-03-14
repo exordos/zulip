@@ -46,6 +46,7 @@ from zerver.forms import (
     OurAuthenticationForm,
     ZulipPasswordResetForm,
 )
+from zerver.lib import api_keys
 from zerver.lib.exceptions import (
     AuthenticationFailedError,
     InvalidSubdomainError,
@@ -524,7 +525,7 @@ def finish_desktop_flow(
 def finish_mobile_flow(request: HttpRequest, user_profile: UserProfile, otp: str) -> HttpResponse:
     # For the mobile OAuth flow, we send the API key and other
     # necessary details in a redirect to a zulip:// URL scheme.
-    api_key = user_profile.api_key
+    api_key = api_keys.get_user_api_key(user_profile)
     response = create_response_for_otp_flow(
         api_key, otp, user_profile, encrypted_key_field_name="otp_encrypted_api_key"
     )
@@ -1102,7 +1103,7 @@ def process_api_key_fetch_authenticate_result(
     process_client(request, user_profile)
     RequestNotes.get_notes(request).requester_for_logs = user_profile.format_requester_for_logs()
 
-    api_key = user_profile.api_key
+    api_key = api_keys.get_user_api_key(user_profile)
     return api_key
 
 
@@ -1278,7 +1279,7 @@ def json_fetch_api_key(
     ):
         raise JsonableError(_("Password is incorrect."))
 
-    api_key = user_profile.api_key
+    api_key = api_keys.get_user_api_key(user_profile)
     return json_success(request, data={"api_key": api_key, "email": user_profile.delivery_email})
 
 

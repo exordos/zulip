@@ -11,6 +11,7 @@ from confirmation.models import Confirmation, create_confirmation_link
 from confirmation.settings import STATUS_REVOKED, STATUS_USED
 from zerver.actions.message_send import send_user_profile_update_notification
 from zerver.actions.presence import do_update_user_presence
+from zerver.lib import api_keys
 from zerver.lib.avatar import avatar_url, generate_and_upload_jdenticon_avatar
 from zerver.lib.cache import (
     bulk_flush_users,
@@ -320,8 +321,12 @@ def do_change_tos_version(user_profile: UserProfile, tos_version: str | None) ->
 def do_regenerate_api_key(user_profile: UserProfile, acting_user: UserProfile) -> str:
     old_api_key = user_profile.api_key
     new_api_key = generate_api_key()
-    user_profile.api_key = new_api_key
+    old_api_key_hash = api_keys.get_api_key_hash_for_storage(old_api_key)
+    new_api_key_hash = api_keys.hash_api_key(new_api_key)
+    api_keys.write_api_key_to_storage(new_api_key, new_api_key_hash)
+    user_profile.api_key = new_api_key_hash
     user_profile.save(update_fields=["api_key"])
+    api_keys.delete_api_key_from_storage(old_api_key_hash)
 
     # We need to explicitly delete the old API key from our caches,
     # because the on-save handler for flushing the UserProfile object

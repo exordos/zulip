@@ -15,8 +15,8 @@ from django.utils.timezone import now as timezone_now
 from django.utils.translation import gettext_lazy
 from typing_extensions import override
 
-from zerver.lib.cache import flush_message, flush_submessage, flush_used_upload_space_cache
 from zerver.lib import message_encryption
+from zerver.lib.cache import flush_message, flush_submessage, flush_used_upload_space_cache
 from zerver.models.clients import Client
 from zerver.models.constants import MAX_TOPIC_NAME_LENGTH
 from zerver.models.realms import Realm

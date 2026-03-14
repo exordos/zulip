@@ -13,6 +13,7 @@ from django.utils.timezone import now as timezone_now
 from django.utils.translation import gettext_lazy
 from typing_extensions import override
 
+from zerver.lib import api_keys
 from zerver.lib.cache import (
     active_non_guest_user_ids_cache_key,
     active_user_ids_cache_key,
@@ -1038,14 +1039,20 @@ def get_user_profile_by_email(email: str) -> UserProfile:
 
 @cache_with_key(user_profile_by_api_key_cache_key, timeout=3600 * 24 * 7)
 def maybe_get_user_profile_by_api_key(api_key: str) -> UserProfile | None:
+    api_key_hash = api_keys.hash_api_key(api_key)
     try:
-        return base_get_user_queryset().get(api_key=api_key)
+        return base_get_user_queryset().get(api_key=api_key_hash)
     except UserProfile.DoesNotExist:
-        # We will cache failed lookups with None.  The
-        # use case here is that broken API clients may
-        # continually ask for the same wrong API key, and
-        # we want to handle that as quickly as possible.
-        return None
+        try:
+            user_profile = base_get_user_queryset().get(api_key=api_key)
+        except UserProfile.DoesNotExist:
+            # We will cache failed lookups with None.  The
+            # use case here is that broken API clients may
+            # continually ask for the same wrong API key, and
+            # we want to handle that as quickly as possible.
+            return None
+        api_keys.migrate_api_key_from_legacy(user_profile, api_key)
+        return user_profile
 
 
 def get_user_profile_by_api_key(api_key: str) -> UserProfile:
@@ -1251,7 +1258,13 @@ def get_source_profile(email: str, realm_id: int) -> UserProfile | None:
 
 @cache_with_key(lambda realm: bot_dicts_in_realm_cache_key(realm.id), timeout=3600 * 24 * 7)
 def get_bot_dicts_in_realm(realm: "Realm") -> list[dict[str, Any]]:
-    return list(UserProfile.objects.filter(realm=realm, is_bot=True).values(*bot_dict_fields))
+    bot_dicts = list(UserProfile.objects.filter(realm=realm, is_bot=True).values(*bot_dict_fields))
+    for bot_dict in bot_dicts:
+        bot_dict["api_key"] = api_keys.resolve_api_key_value(
+            bot_dict["api_key"],
+            user_id=bot_dict["id"],
+        )
+    return bot_dicts
 
 
 def is_cross_realm_bot_email(email: str) -> bool:
