@@ -1915,6 +1915,7 @@ def export_partial_message_files(
         # For a full export, we have implicit consent for all users in the export.
         consented_user_ids = user_ids_for_us
 
+    message_queries: list[QuerySet[Message]]
     if export_type == RealmExport.EXPORT_PUBLIC:
         messages_we_received = Message.objects.filter(
             # Uses index: zerver_message_realm_sender_recipient

@@ -9,10 +9,10 @@ from email.headerregistry import Address
 from functools import lru_cache, reduce
 from operator import or_
 from threading import Lock, Thread
-from typing import Any, NoReturn, Union
+from typing import Any, NoReturn, Union, cast
 
 from django.core.management.base import CommandError
-from django.db.models import Q
+from django.db.models import Q, QuerySet
 from typing_extensions import override
 
 from zerver.lib.export import orjson_stream
@@ -227,7 +227,7 @@ This is most often used for legal compliance.
             channels = [get_stream(n.lstrip("#"), realm) for n in options["channel"]]
             limits &= Q(recipient__in=[s.recipient_id for s in channels])
 
-        messages_query = (
+        messages_query: QuerySet[Message] = (
             Message.objects.filter(limits, realm=realm)
             .select_related("sender")
             .only(
@@ -306,8 +306,11 @@ This is most often used for legal compliance.
             while True:
                 batch_query = messages_query.filter(id__gt=min_id)
                 if usermessage_joined:
-                    batch_query = batch_query.extra(
-                        where=["zerver_usermessage.message_id > %s"], params=[min_id]
+                    batch_query = cast(
+                        QuerySet[Message],
+                        batch_query.extra(
+                            where=["zerver_usermessage.message_id > %s"], params=[min_id]
+                        ),
                     )
                 batch = [transform_message(m) for m in batch_query[:BATCH_SIZE]]
                 if len(batch) == 0:

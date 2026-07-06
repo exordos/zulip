@@ -25,7 +25,6 @@ from zerver.actions.message_send import (
 )
 from zerver.actions.uploads import AttachmentChangeResult, check_attachment_reference_change
 from zerver.actions.user_topics import bulk_do_set_user_topic_visibility_policy
-from zerver.lib import message_encryption
 from zerver.lib import utils
 from zerver.lib.cache import cache_delete_many, to_dict_cache_key_id
 from zerver.lib.exceptions import (
@@ -1049,7 +1048,7 @@ def do_update_message(
     changed_messages = Message.objects.filter(id=target_message.id)
     changed_message_ids = [target_message.id]
     changed_messages_count = 1
-    save_changes_for_propagation_mode: Callable[[], None] = lambda: None
+    save_changes_for_propagation_mode: Callable[[], QuerySet[Message] | None] = lambda: None
     if message_edit_request.propagate_mode in ["change_later", "change_all"]:
         # Other messages should only get topic/stream fields in their edit history.
         topic_only_edit_history_event: EditHistoryEvent = {

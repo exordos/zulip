@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import Any
 
 import orjson
+from django.conf import settings
 from django.db import connection
 from django.db.models import F, Func, JSONField, Q, QuerySet, Subquery, TextField, Value
 from django.db.models.functions import Cast
@@ -159,10 +160,10 @@ def update_messages_for_topic_edit(
     message_edit_request: StreamMessageEditRequest,
     edit_history_event: EditHistoryEvent,
     last_edit_time: datetime,
-) -> tuple[QuerySet[Message], Callable[[], QuerySet[Message]]]:
+) -> tuple[QuerySet[Message], Callable[[], QuerySet[Message] | None]]:
     # Uses index: zerver_message_realm_recipient_upper_subject
     old_stream = message_edit_request.orig_stream
-    messages = Message.objects.filter(
+    messages: QuerySet[Message] = Message.objects.filter(
         realm_id=old_stream.realm_id,
         recipient_id=assert_is_not_none(old_stream.recipient_id),
         subject__iexact=message_edit_request.orig_topic_name,
@@ -224,14 +225,22 @@ def update_messages_for_topic_edit(
     if message_edit_request.is_topic_edited:
         update_fields["subject"] = message_edit_request.target_topic_name
 
+    if not settings.MESSAGE_CONTENT_ENCRYPTION_ENABLED:
+
+        def bulk_propagate() -> None:
+            messages.update(**update_fields)
+
+        return messages, bulk_propagate
+
     # The update will cause the 'messages' query to no longer match
     # any rows; we capture the set of matching ids first, do the
     # update, and then return a fresh collection -- so we know their
     # metadata has been updated for the UPDATE command, and the caller
-    # can update the remote cache with that.
-    message_ids = [edited_message.id, *messages.values_list("id", flat=True)]
+    # can update the remote cache with that.  The edited message itself
+    # is saved separately by the caller.
+    message_ids = list(messages.values_list("id", flat=True))
 
-    def propagate() -> QuerySet[Message]:
+    def encrypted_propagate() -> QuerySet[Message]:
         update_fields_without_history = dict(update_fields)
         update_fields_without_history.pop("edit_history")
         messages.update(**update_fields_without_history)
@@ -242,7 +251,7 @@ def update_messages_for_topic_edit(
             *Message.DEFAULT_SELECT_RELATED
         )
 
-    return messages, propagate
+    return messages, encrypted_propagate
 
 
 def generate_topic_history_from_db_rows(

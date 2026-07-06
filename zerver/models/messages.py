@@ -1,7 +1,7 @@
 import time
+import typing
 from datetime import timedelta
 from typing import Any
-import typing
 
 from bitfield import BitField
 from bitfield.types import Bit, BitHandler
@@ -23,27 +23,33 @@ from zerver.models.realms import Realm
 from zerver.models.recipients import Recipient
 from zerver.models.users import UserProfile
 
-
 SENSITIVE_MESSAGE_FIELDS = frozenset({"content", "rendered_content", "edit_history"})
+MESSAGE_DECRYPTION_REQUIRED_FIELDS = SENSITIVE_MESSAGE_FIELDS | frozenset(
+    {"date_sent", "realm_id", "recipient_id", "sender_id"}
+)
+_MessageT = typing.TypeVar("_MessageT", bound="AbstractMessage")
 
 
-class MessageQuerySet(QuerySet):
+class MessageQuerySet(QuerySet[_MessageT]):
     def _raise_on_sensitive_fields(self, fields: typing.Iterable[str]) -> None:
         if SENSITIVE_MESSAGE_FIELDS.intersection(fields):
             raise RuntimeError("Use message_encryption helpers to update message content fields.")
 
+    @override
     def update(self, **kwargs: typing.Any) -> int:
         self._raise_on_sensitive_fields(kwargs.keys())
         return super().update(**kwargs)
 
+    @override
     def bulk_update(
         self,
-        objs: list[models.Model],
-        fields: list[str],
+        objs: typing.Iterable[typing.Any],
+        fields: typing.Iterable[str],
         batch_size: int | None = None,
     ) -> int:
-        self._raise_on_sensitive_fields(fields)
-        return super().bulk_update(objs, fields, batch_size=batch_size)
+        fields_list = list(fields)
+        self._raise_on_sensitive_fields(fields_list)
+        return super().bulk_update(objs, fields_list, batch_size=batch_size)
 
 
 class AbstractMessage(models.Model):
@@ -140,10 +146,17 @@ class AbstractMessage(models.Model):
     is_channel_message = models.BooleanField(default=True, db_index=True)
 
     objects = MessageQuerySet.as_manager()
-    raw_objects = models.Manager()
+    raw_objects = models.Manager()  # noqa: DJ012
 
     class Meta:
         abstract = True
+
+    @override
+    def __str__(self) -> str:
+        if not self.is_channel_message:
+            return f"{self.recipient.label()} /  / {self.sender!r}"
+
+        return f"{self.recipient.label()} / {self.subject} / {self.sender!r}"
 
     @override
     def save(self, *args: typing.Any, **kwargs: typing.Any) -> None:
@@ -170,11 +183,8 @@ class AbstractMessage(models.Model):
                     )
             if "rendered_content" in sensitive_fields:
                 original_values["rendered_content"] = self.rendered_content
-                if (
-                    self.rendered_content is not None
-                    and not self.rendered_content.startswith(
-                        message_encryption.ENCRYPTED_MESSAGE_PREFIX
-                    )
+                if self.rendered_content is not None and not self.rendered_content.startswith(
+                    message_encryption.ENCRYPTED_MESSAGE_PREFIX
                 ):
                     self.rendered_content = message_encryption.encrypt_message_text(
                         self.rendered_content,
@@ -192,19 +202,17 @@ class AbstractMessage(models.Model):
             for field_name, value in original_values.items():
                 setattr(self, field_name, value)
 
-    @override
-    def __str__(self) -> str:
-        if not self.is_channel_message:
-            return f"{self.recipient.label()} /  / {self.sender!r}"
-
-        return f"{self.recipient.label()} / {self.subject} / {self.sender!r}"
-
     @classmethod
+    @override
     def from_db(
-        cls, db: str, field_names: list[str], values: list[Any]
+        cls,
+        db: str | None,
+        field_names: typing.Collection[str],
+        values: typing.Collection[Any],
     ) -> "AbstractMessage":
         message = super().from_db(db, field_names, values)
-        message_encryption.decrypt_message_fields(message)
+        if MESSAGE_DECRYPTION_REQUIRED_FIELDS.issubset(field_names):
+            message_encryption.decrypt_message_fields(message)
         return message
 
 

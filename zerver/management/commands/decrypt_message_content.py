@@ -31,7 +31,6 @@ class Command(zerver.lib.management.ZulipBaseCommand):
         )
         parser.add_argument(
             "--user-ids",
-            type=str,
             default="",
             help=(
                 "Comma-separated list of user IDs. When provided, only direct messages where "
@@ -118,7 +117,7 @@ class Command(zerver.lib.management.ZulipBaseCommand):
                 batch.append(
                     model(
                         id=row["id"],
-                        content=decrypted_content,
+                        content=typing.cast(str, decrypted_content),
                         rendered_content=decrypted_rendered,
                         edit_history=decrypted_history,
                     )
@@ -168,22 +167,19 @@ class Command(zerver.lib.management.ZulipBaseCommand):
 
     def _matches_user_ids(
         self,
-        row: dict[str, typing.Any],
+        row: typing.Mapping[str, typing.Any],
         user_ids: set[int],
         recipient_cache: dict[int, zerver.models.recipients.Recipient],
     ) -> bool:
         recipient_type = row["recipient__type"]
-        if recipient_type == zerver.models.recipients.Recipient.PERSONAL:
-            participant_ids = {row["sender_id"], row["recipient__type_id"]}
-        elif recipient_type == zerver.models.recipients.Recipient.DIRECT_MESSAGE_GROUP:
-            recipient_id = row["recipient_id"]
-            recipient = recipient_cache.get(recipient_id)
-            if recipient is None:
-                recipient = zerver.models.recipients.Recipient.objects.get(id=recipient_id)
-                recipient_cache[recipient_id] = recipient
-            participant_ids = set(zerver.models.recipients.get_direct_message_group_user_ids(recipient))
-            participant_ids.add(row["sender_id"])
-        else:
+        if recipient_type != zerver.models.recipients.Recipient.DIRECT_MESSAGE_GROUP:
             return False
 
+        recipient_id = typing.cast(int, row["recipient_id"])
+        recipient = recipient_cache.get(recipient_id)
+        if recipient is None:
+            recipient = zerver.models.recipients.Recipient.objects.get(id=recipient_id)
+            recipient_cache[recipient_id] = recipient
+        participant_ids = set(zerver.models.recipients.get_direct_message_group_user_ids(recipient))
+        participant_ids.add(row["sender_id"])
         return bool(participant_ids.intersection(user_ids))

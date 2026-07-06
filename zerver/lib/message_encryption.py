@@ -11,8 +11,7 @@ import django.conf
 import orjson
 
 from zerver.lib import crypto
-from zerver.models import recipients
-from zerver.models import users
+from zerver.models import recipients, users
 
 logger = logging.getLogger(__name__)
 
@@ -41,8 +40,8 @@ def _get_message_associated_data(message: typing.Any) -> bytes:
     )
 
 
-def _get_row_associated_data(row: dict[str, typing.Any]) -> bytes:
-    realm_id = row.get("realm_id", row.get("sender__realm_id"))
+def _get_row_associated_data(row: typing.Mapping[str, typing.Any]) -> bytes:
+    realm_id = typing.cast(int, row.get("realm_id", row.get("sender__realm_id")))
     return _build_message_associated_data(
         date_sent=row["date_sent"],
         realm_id=realm_id,
@@ -81,9 +80,6 @@ def _get_realm_user_ids(message: typing.Any, user_ids: list[int]) -> set[int]:
 
 def _get_direct_message_participant_ids(message: typing.Any) -> set[int]:
     recipient = message.recipient
-    if recipient.type == recipients.Recipient.PERSONAL:
-        return {message.sender_id, recipient.type_id}
-
     if recipient.type == recipients.Recipient.DIRECT_MESSAGE_GROUP:
         participant_ids = set(recipients.get_direct_message_group_user_ids(recipient))
         participant_ids.add(message.sender_id)
@@ -223,6 +219,16 @@ def decrypt_message_text_optional(value: str | None, associated_data: bytes) -> 
     return decrypt_message_text(value, associated_data)
 
 
+def _row_has_encrypted_message_fields(row: typing.Mapping[str, typing.Any]) -> bool:
+    for field_name in ("content", "rendered_content"):
+        value = row.get(field_name)
+        if isinstance(value, str) and value.startswith(ENCRYPTED_MESSAGE_PREFIX):
+            return True
+
+    edit_history = row.get("edit_history")
+    return isinstance(edit_history, str) and ENCRYPTED_MESSAGE_PREFIX in edit_history
+
+
 def encrypt_message_fields_for_database(
     message: typing.Any,
 ) -> tuple[str, str | None, str | None]:
@@ -233,7 +239,9 @@ def encrypt_message_fields_for_database(
         return original_content, original_rendered_content, original_edit_history
     associated_data = _get_message_associated_data(message)
     message.content = encrypt_message_text(original_content, associated_data)
-    message.rendered_content = encrypt_message_text_optional(original_rendered_content, associated_data)
+    message.rendered_content = encrypt_message_text_optional(
+        original_rendered_content, associated_data
+    )
     if original_edit_history is not None:
         message.edit_history = encrypt_edit_history(original_edit_history, associated_data)
     return original_content, original_rendered_content, original_edit_history
@@ -257,6 +265,9 @@ def decrypt_message_fields(message: typing.Any) -> None:
 
 
 def decrypt_message_row(row: dict[str, typing.Any]) -> None:
+    if not _row_has_encrypted_message_fields(row):
+        return
+
     associated_data = _get_row_associated_data(row)
     if "content" in row:
         row["content"] = decrypt_message_text(row["content"], associated_data)

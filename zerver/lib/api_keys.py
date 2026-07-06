@@ -6,13 +6,12 @@ import hmac
 import logging
 import os
 import types
-from typing import Final
+from typing import Final, Protocol
 
 from django.conf import settings
 
 from zerver import models
 from zerver.lib import crypto
-
 
 API_KEY_HASH_PREFIX: Final[str] = "h1"
 API_KEY_HASH_LENGTH: Final[int] = 32
@@ -22,6 +21,11 @@ API_KEY_ENCRYPTION_PREFIX: Final[str] = "ak:v1:"
 API_KEY_ENCRYPTION_SEPARATOR: Final[str] = ":"
 
 logger = logging.getLogger(__name__)
+
+
+class ApiKeyUserProfile(Protocol):
+    id: int
+    api_key: str
 
 
 def is_api_key_hash(value: str) -> bool:
@@ -112,7 +116,7 @@ def write_api_key_to_storage(api_key: str, api_key_hash: str) -> None:
 def read_api_key_from_storage(api_key_hash: str) -> str:
     file_path = _get_api_key_storage_path(api_key_hash)
     try:
-        with open(file_path, "r", encoding="utf-8") as handle:
+        with open(file_path, encoding="utf-8") as handle:
             encoded = handle.read().strip()
     except FileNotFoundError as exc:
         logger.warning("API key file missing for hash %s", api_key_hash)
@@ -128,7 +132,7 @@ def delete_api_key_from_storage(api_key_hash: str) -> None:
         return
 
 
-def get_user_api_key(user_profile: object) -> str:
+def get_user_api_key(user_profile: ApiKeyUserProfile) -> str:
     api_key_value = user_profile.api_key
     if is_api_key_hash(api_key_value):
         return read_api_key_from_storage(api_key_value)
@@ -145,7 +149,7 @@ def resolve_api_key_value(api_key_value: str, user_id: int | None = None) -> str
     return api_key_value
 
 
-def ensure_api_key_storage(user_profile: object, api_key: str | None = None) -> str:
+def ensure_api_key_storage(user_profile: ApiKeyUserProfile, api_key: str | None = None) -> str:
     api_key_value = api_key or user_profile.api_key
     api_key_hash = get_api_key_hash_for_storage(api_key_value)
     if is_api_key_hash(api_key_value):
@@ -158,7 +162,7 @@ def ensure_api_key_storage(user_profile: object, api_key: str | None = None) -> 
     return api_key_hash
 
 
-def migrate_api_key_from_legacy(user_profile: object, api_key: str) -> None:
+def migrate_api_key_from_legacy(user_profile: ApiKeyUserProfile, api_key: str) -> None:
     try:
         ensure_api_key_storage(user_profile, api_key=api_key)
     except Exception:

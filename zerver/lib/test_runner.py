@@ -250,6 +250,7 @@ def initialize_worker_path(worker_id: int) -> None:
     worker_path = os.path.join(TEST_RUN_DIR, f"worker_{_worker_id}")
     os.makedirs(worker_path, exist_ok=True)
     settings.TEST_WORKER_DIR = worker_path
+    settings.API_KEY_STORAGE_DIR = os.path.join(worker_path, "api-keys")
 
     # Every process should upload to a separate directory so that
     # race conditions can be avoided.

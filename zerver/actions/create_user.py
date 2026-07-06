@@ -484,7 +484,6 @@ def created_bot_event(user_profile: UserProfile) -> dict[str, Any]:
 
     bot = dict(
         user_id=user_profile.id,
-        api_key=api_keys.get_user_api_key(user_profile),
         default_sending_stream=default_sending_stream_name,
         default_events_register_stream=default_events_register_stream_name,
         default_all_public_streams=user_profile.default_all_public_streams,

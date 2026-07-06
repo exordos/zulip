@@ -353,7 +353,7 @@ class MessageDict:
             "sender__realm_id",
         ]
         # Uses index: zerver_message_pkey
-        messages = Message.objects.filter(id__in=needed_ids).values(*fields)
+        messages = list(Message.objects.filter(id__in=needed_ids).values(*fields))
         for message in messages:
             message_encryption.decrypt_message_row(message)
         MessageDict.sew_submessages_and_reactions_to_msgs(messages)

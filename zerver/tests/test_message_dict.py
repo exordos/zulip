@@ -816,7 +816,7 @@ class SewMessageAndReactionTest(ZulipTestCase):
                 reaction = Reaction(user_profile=sender, message=message, emoji_name="simple_smile")
                 reaction.save()
 
-        messages = Message.objects.filter(id__in=needed_ids).values(*["id", "content"])
+        messages = list(Message.objects.filter(id__in=needed_ids).values(*["id", "content"]))
         reactions = Reaction.get_raw_db_rows(needed_ids)
         tied_data = sew_messages_and_reactions(messages, reactions)
         for data in tied_data:

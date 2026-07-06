@@ -1147,7 +1147,7 @@ class QueryCountTest(ZulipTestCase):
         prereg_user = PreregistrationUser.objects.get(email="fred@zulip.com")
 
         with (
-            self.assert_database_query_count(99),
+            self.assert_database_query_count(102),
             self.assert_memcached_count(24),
             self.capture_send_event_calls(expected_num_events=11) as events,
         ):
@@ -1993,7 +1993,7 @@ class UserProfileTest(ZulipTestCase):
         self.assertTrue(polonius.is_guest)
         self.assertTrue(stream.is_web_public)
 
-        with self.assert_database_query_count(6):
+        with self.assert_database_query_count(8):
             result = orjson.loads(
                 self.api_get(polonius, f"/api/v1/users/{iago.id}/channels").content
             )

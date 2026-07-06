@@ -15,6 +15,7 @@ TEST_SUITE = os.getenv("ZULIP_TEST_SUITE") == "true"
 # settings.py.
 DEPLOY_ROOT = os.path.realpath(os.path.dirname(os.path.dirname(__file__)))
 LOCAL_UPLOADS_DIR = os.path.join(DEPLOY_ROOT, "var/uploads")
+API_KEY_STORAGE_DIR = os.path.join(DEPLOY_ROOT, "var/api-keys")
 
 # We assume dev droplets are the only places where
 # users use zulipdev as the user.
