@@ -62,6 +62,7 @@ from zerver.actions.user_groups import (
 )
 from zerver.actions.user_settings import do_change_password, do_change_user_setting
 from zerver.actions.users import change_user_is_active, do_deactivate_user
+from zerver.lib import api_keys
 from zerver.lib.avatar import avatar_url
 from zerver.lib.avatar_hash import user_avatar_path
 from zerver.lib.dev_ldap_directory import generate_dev_ldap_dir
@@ -1315,7 +1316,7 @@ class SocialAuthBase(DesktopFlowTestingLib, ZulipTestCase, ABC):
         encrypted_api_key = query_params["otp_encrypted_api_key"][0]
         self.assertEqual(
             otp_decrypt_api_key(encrypted_api_key, mobile_flow_otp),
-            self.example_user("hamlet").api_key,
+            api_keys.get_user_api_key(self.example_user("hamlet")),
         )
         self.assert_length(mail.outbox, 1)
         self.assertIn("Zulip on Android", mail.outbox[0].body)
@@ -1483,9 +1484,9 @@ class SocialAuthBase(DesktopFlowTestingLib, ZulipTestCase, ABC):
             self.assertEqual(query_params["realm"], ["http://zulip.testserver"])
             self.assertEqual(query_params["email"], [email])
             encrypted_api_key = query_params["otp_encrypted_api_key"][0]
-            self.assertIn(
+            self.assertEqual(
                 otp_decrypt_api_key(encrypted_api_key, mobile_flow_otp),
-                get_user_by_delivery_email(email, realm).api_key,
+                api_keys.get_user_api_key(get_user_by_delivery_email(email, realm)),
             )
             return
         elif desktop_flow_otp:
@@ -5967,7 +5968,7 @@ class GoogleAuthBackendTest(SocialAuthBase):
         encrypted_api_key = query_params["otp_encrypted_api_key"][0]
         self.assertEqual(
             otp_decrypt_api_key(encrypted_api_key, mobile_flow_otp),
-            self.example_user("hamlet").api_key,
+            api_keys.get_user_api_key(self.example_user("hamlet")),
         )
 
     def test_social_auth_mobile_success_legacy_url(self) -> None:
@@ -6012,9 +6013,9 @@ class GoogleAuthBackendTest(SocialAuthBase):
         self.assertEqual(query_params["realm"], ["http://zulip.testserver"])
         self.assertEqual(query_params["email"], [self.example_email("hamlet")])
         encrypted_api_key = query_params["otp_encrypted_api_key"][0]
-        self.assertIn(
+        self.assertEqual(
             otp_decrypt_api_key(encrypted_api_key, mobile_flow_otp),
-            self.example_user("hamlet").api_key,
+            api_keys.get_user_api_key(self.example_user("hamlet")),
         )
         self.assert_length(mail.outbox, 1)
         self.assertIn("Zulip on Android", mail.outbox[0].body)
@@ -6640,7 +6641,7 @@ class DevFetchAPIKeyTest(ZulipTestCase):
         data = self.assert_json_success(result)
         self.assertEqual(data["email"], self.email)
         self.assertEqual(data["user_id"], self.user_profile.id)
-        self.assertEqual(data["api_key"], self.user_profile.api_key)
+        self.assertEqual(data["api_key"], api_keys.get_user_api_key(self.user_profile))
 
     def test_invalid_email(self) -> None:
         email = "hamlet"
@@ -7341,9 +7342,9 @@ class TestZulipRemoteUserBackend(DesktopFlowTestingLib, ZulipTestCase):
         self.assertEqual(query_params["realm"], ["http://zulip.testserver"])
         self.assertEqual(query_params["email"], [self.example_email("hamlet")])
         encrypted_api_key = query_params["otp_encrypted_api_key"][0]
-        self.assertIn(
+        self.assertEqual(
             otp_decrypt_api_key(encrypted_api_key, mobile_flow_otp),
-            self.example_user("hamlet").api_key,
+            api_keys.get_user_api_key(self.example_user("hamlet")),
         )
         self.assert_length(mail.outbox, 1)
         self.assertIn("Zulip on Android", mail.outbox[0].body)
@@ -7397,9 +7398,9 @@ class TestZulipRemoteUserBackend(DesktopFlowTestingLib, ZulipTestCase):
         self.assertEqual(query_params["realm"], ["http://zulip.testserver"])
         self.assertEqual(query_params["email"], [self.example_email("hamlet")])
         encrypted_api_key = query_params["otp_encrypted_api_key"][0]
-        self.assertIn(
+        self.assertEqual(
             otp_decrypt_api_key(encrypted_api_key, mobile_flow_otp),
-            self.example_user("hamlet").api_key,
+            api_keys.get_user_api_key(self.example_user("hamlet")),
         )
         self.assert_length(mail.outbox, 1)
         self.assertIn("Zulip on Android", mail.outbox[0].body)
@@ -9479,7 +9480,7 @@ class JWTFetchAPIKeyTest(ZulipTestCase):
         self.email = self.example_email("hamlet")
         self.realm = get_realm("zulip")
         self.user_profile = get_user_by_delivery_email(self.email, self.realm)
-        self.api_key = self.user_profile.api_key
+        self.api_key = api_keys.get_user_api_key(self.user_profile)
         self.raw_user_data = get_users_for_api(
             self.user_profile.realm,
             self.user_profile,

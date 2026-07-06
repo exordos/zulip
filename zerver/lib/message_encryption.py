@@ -57,11 +57,14 @@ def should_encrypt_message(message: typing.Any) -> bool:
     if django.conf.settings.ENCRYPT_ALL_MESSAGES:
         return True
 
+    setting_user_ids = django.conf.settings.ENCRYPT_ALL_DIRECT_MESSAGE_FOR_USER_IDS
+    if not setting_user_ids:
+        return False
+
     participant_ids = _get_direct_message_participant_ids(message)
     if not participant_ids:
         return False
 
-    setting_user_ids = django.conf.settings.ENCRYPT_ALL_DIRECT_MESSAGE_FOR_USER_IDS
     realm_user_ids = _get_realm_user_ids(message, setting_user_ids)
     return bool(participant_ids.intersection(realm_user_ids))
 

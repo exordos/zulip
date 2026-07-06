@@ -54,6 +54,7 @@ from zerver.actions.streams import bulk_add_subscriptions, bulk_remove_subscript
 from zerver.actions.user_settings import do_change_full_name, do_change_user_setting
 from zerver.actions.users import do_change_user_role
 from zerver.decorator import do_two_factor_login
+from zerver.lib import api_keys
 from zerver.lib.cache import bounce_key_prefix_for_testing
 from zerver.lib.email_notifications import MissedMessageData, handle_missedmessage_emails
 from zerver.lib.initial_password import initial_password
@@ -1078,14 +1079,14 @@ Output:
 
     def encode_user(self, user: UserProfile) -> str:
         email = user.delivery_email
-        api_key = user.api_key
+        api_key = api_keys.get_user_api_key(user)
         return self.encode_credentials(email, api_key)
 
     def encode_email(self, email: str, realm: str = "zulip") -> str:
         # TODO: use encode_user where possible
         assert "@" in email
         user = get_user_by_delivery_email(email, get_realm(realm))
-        api_key = user.api_key
+        api_key = api_keys.get_user_api_key(user)
 
         return self.encode_credentials(email, api_key)
 
@@ -2738,7 +2739,7 @@ one or more new messages.
     def build_webhook_url(self, *args: str, legacy_name: str | None = None, **kwargs: str) -> str:
         url = self.url_template
         assert url.find("api_key") >= 0
-        api_key = self.test_user.api_key
+        api_key = api_keys.get_user_api_key(self.test_user)
         url = self.url_template.format(
             webhook_dir_name=self.webhook_dir_name if legacy_name is None else legacy_name,
             api_key=api_key,
