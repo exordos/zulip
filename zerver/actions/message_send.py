@@ -1,13 +1,13 @@
 import logging
 from collections import defaultdict
-from collections.abc import Callable, Collection, Sequence, Set as AbstractSet
+from collections.abc import Callable, Collection, Sequence
+from collections.abc import Set as AbstractSet
 from dataclasses import dataclass
 from datetime import timedelta
 from email.headerregistry import Address
 from typing import Any, Literal, TypedDict, cast
 
 import orjson
-
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
