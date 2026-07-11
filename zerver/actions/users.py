@@ -25,7 +25,6 @@ from zerver.actions.user_groups import (
     update_users_in_full_members_system_group,
 )
 from zerver.actions.user_settings import do_change_avatar_fields, do_change_full_name
-from zerver.lib import api_keys
 from zerver.lib.bot_config import ConfigError, get_bot_config, get_bot_configs, set_bot_config
 from zerver.lib.cache import bot_dict_fields, flush_user_profile
 from zerver.lib.create_user import create_user_profile
@@ -923,10 +922,6 @@ def get_owned_bot_dicts(
     return [
         {
             "user_id": botdict["id"],
-            "api_key": api_keys.resolve_api_key_value(
-                botdict["api_key"],
-                user_id=botdict["id"],
-            ),
             "default_sending_stream": botdict["default_sending_stream__name"],
             "default_events_register_stream": botdict["default_events_register_stream__name"],
             "default_all_public_streams": botdict["default_all_public_streams"],
