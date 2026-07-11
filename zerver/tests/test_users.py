@@ -1993,7 +1993,7 @@ class UserProfileTest(ZulipTestCase):
         self.assertTrue(polonius.is_guest)
         self.assertTrue(stream.is_web_public)
 
-        with self.assert_database_query_count(7):
+        with self.assert_database_query_count(6):
             result = orjson.loads(
                 self.api_get(polonius, f"/api/v1/users/{iago.id}/channels").content
             )

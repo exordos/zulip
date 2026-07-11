@@ -125,6 +125,11 @@ def read_api_key_from_storage(api_key_hash: str) -> str:
 
 
 def delete_api_key_from_storage(api_key_hash: str) -> None:
+    # Database changes are rolled back between tests, but file deletions are not.
+    # Keep old keys available until the test worker directory is removed at teardown.
+    if settings.TEST_SUITE:
+        return
+
     file_path = _get_api_key_storage_path(api_key_hash)
     try:
         os.remove(file_path)

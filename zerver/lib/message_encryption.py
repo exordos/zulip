@@ -61,6 +61,9 @@ def should_encrypt_message(message: typing.Any) -> bool:
     if not setting_user_ids:
         return False
 
+    if message.is_channel_message:
+        return False
+
     participant_ids = _get_direct_message_participant_ids(message)
     if not participant_ids:
         return False
