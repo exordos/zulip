@@ -2481,6 +2481,25 @@ class MessageMoveTopicTest(ZulipTestCase):
         result = self.resolve_topic_containing_message(hamlet, target_message_id=message_id)
         self.assert_json_error(result, "General chat cannot be marked as resolved")
 
+    @override_settings(MESSAGE_CONTENT_ENCRYPTION_ENABLED=False)
+    def test_resolve_topic_with_message_encryption_disabled(self) -> None:
+        hamlet = self.example_user("hamlet")
+        topic_name = "topic to resolve"
+        resolved_topic_name = RESOLVED_TOPIC_PREFIX + topic_name
+        first_message_id = self.send_stream_message(hamlet, "Denmark", topic_name=topic_name)
+        second_message_id = self.send_stream_message(hamlet, "Denmark", topic_name=topic_name)
+
+        result = self.resolve_topic_containing_message(
+            hamlet,
+            target_message_id=first_message_id,
+        )
+
+        self.assert_json_success(result)
+        for message_id in (first_message_id, second_message_id):
+            message = Message.objects.get(id=message_id)
+            self.assertEqual(message.topic_name(), resolved_topic_name)
+            self.assertIsNotNone(message.edit_history)
+
     def test_resolved_topic_realm_level_permissions(self) -> None:
         self.login("iago")
         admin_user = self.example_user("iago")
