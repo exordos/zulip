@@ -488,7 +488,7 @@ class MessageMoveTopicTest(ZulipTestCase):
         # state + 1/user with a UserTopic row for the events data)
         # beyond what is typical were there not UserTopic records to
         # update. Ideally, we'd eliminate the per-user component.
-        with self.assert_database_query_count(25):
+        with self.assert_database_query_count(24):
             check_update_message(
                 user_profile=hamlet,
                 message_id=message_id,
@@ -750,7 +750,7 @@ class MessageMoveTopicTest(ZulipTestCase):
             users_to_be_notified_via_muted_topics_event.append(user_topic.user_profile_id)
 
         change_all_topic_name = "Topic 1 edited"
-        with self.assert_database_query_count(30):
+        with self.assert_database_query_count(29):
             check_update_message(
                 user_profile=hamlet,
                 message_id=message_id,

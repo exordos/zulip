@@ -510,6 +510,13 @@ def user_profile_narrow_by_id_cache_key(user_profile_id: int) -> str:
 
 
 def user_profile_by_api_key_cache_key(api_key: str) -> str:
+    if api_keys.is_api_key_hash(api_key):
+        return f"user_profile_by_presented_api_key_hash:{api_key}"
+    api_key_hash = api_keys.get_api_key_hash_for_storage(api_key)
+    return f"user_profile_by_api_key:{api_key_hash}"
+
+
+def user_profile_by_stored_api_key_cache_key(api_key: str) -> str:
     api_key_hash = api_keys.get_api_key_hash_for_storage(api_key)
     return f"user_profile_by_api_key:{api_key_hash}"
 
@@ -599,7 +606,7 @@ def delete_user_profile_caches(user_profiles: Iterable["UserProfile"], realm_id:
         for user_profile in user_profiles:
             yield user_profile_by_id_cache_key(user_profile.id)
             yield user_profile_narrow_by_id_cache_key(user_profile.id)
-            yield user_profile_by_api_key_cache_key(user_profile.api_key)
+            yield user_profile_by_stored_api_key_cache_key(user_profile.api_key)
             yield user_profile_by_email_realm_id_cache_key(user_profile.email, realm_id)
             yield user_profile_delivery_email_cache_key(user_profile.delivery_email, realm_id)
             if user_profile.is_bot and is_cross_realm_bot_email(user_profile.email):
