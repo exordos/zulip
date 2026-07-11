@@ -19,6 +19,7 @@ from zerver.actions.reactions import do_add_reaction
 from zerver.actions.realm_domains import do_add_realm_domain
 from zerver.actions.realm_linkifiers import do_add_linkifier
 from zerver.actions.realm_playgrounds import check_add_realm_playground
+from zerver.lib import api_keys
 from zerver.lib.bot_storage import set_bot_storage
 from zerver.lib.events import do_events_register
 from zerver.lib.initial_password import initial_password
@@ -384,7 +385,7 @@ def deactivate_own_user() -> dict[str, object]:
     )
     realm = get_realm("zulip")
     test_user = get_user(test_user_email, realm)
-    test_user_api_key = test_user.api_key
+    test_user_api_key = api_keys.get_user_api_key(test_user)
     # change authentication line to allow test_client to delete itself.
     AUTHENTICATION_LINE[0] = f"{deactivate_test_user.email}:{test_user_api_key}"
     return {}
@@ -446,7 +447,7 @@ def regenerate_api_key_test_user() -> dict[str, object]:
         acting_user=None,
     )
     realm = get_realm("zulip")
-    test_user_api_key = get_user(test_user_email, realm).api_key
+    test_user_api_key = api_keys.get_user_api_key(get_user(test_user_email, realm))
     # Change authentication line to allow test_client to regenerate its own key.
     AUTHENTICATION_LINE[0] = f"{test_user.email}:{test_user_api_key}"
     return {}
@@ -478,7 +479,7 @@ def check_thumbnail_status_for_uploaded_file() -> dict[str, object]:
 def add_realm_domain_owner_auth() -> dict[str, object]:
     # This endpoint requires organization owner permissions.
     owner = helpers.example_user("desdemona")
-    AUTHENTICATION_LINE[0] = f"{owner.email}:{owner.api_key}"
+    AUTHENTICATION_LINE[0] = f"{owner.email}:{api_keys.get_user_api_key(owner)}"
     return {}
 
 
@@ -486,7 +487,7 @@ def add_realm_domain_owner_auth() -> dict[str, object]:
 def patch_realm_domain_owner_auth() -> dict[str, object]:
     # This endpoint requires organization owner permissions.
     owner = helpers.example_user("desdemona")
-    AUTHENTICATION_LINE[0] = f"{owner.email}:{owner.api_key}"
+    AUTHENTICATION_LINE[0] = f"{owner.email}:{api_keys.get_user_api_key(owner)}"
 
     do_add_realm_domain(owner.realm, "patch-domain-example.com", False, acting_user=None)
     return {"domain": "patch-domain-example.com"}
@@ -496,7 +497,7 @@ def patch_realm_domain_owner_auth() -> dict[str, object]:
 def delete_realm_domain_owner_auth() -> dict[str, object]:
     # This endpoint requires organization owner permissions.
     owner = helpers.example_user("desdemona")
-    AUTHENTICATION_LINE[0] = f"{owner.email}:{owner.api_key}"
+    AUTHENTICATION_LINE[0] = f"{owner.email}:{api_keys.get_user_api_key(owner)}"
 
     do_add_realm_domain(owner.realm, "delete-domain-example.com", False, acting_user=None)
     return {"domain": "delete-domain-example.com"}
@@ -505,7 +506,7 @@ def delete_realm_domain_owner_auth() -> dict[str, object]:
 @openapi_param_value_generator(["/bot_storage:put"])
 def update_bot_storage_bot_auth() -> dict[str, object]:
     bot = helpers.example_user("default_bot")
-    AUTHENTICATION_LINE[0] = f"{bot.email}:{bot.api_key}"
+    AUTHENTICATION_LINE[0] = f"{bot.email}:{api_keys.get_user_api_key(bot)}"
     return {}
 
 
@@ -513,7 +514,7 @@ def update_bot_storage_bot_auth() -> dict[str, object]:
 def get_bot_storage_bot_auth() -> dict[str, object]:
     bot = helpers.example_user("default_bot")
     set_bot_storage(bot, [("foo", "bar")])
-    AUTHENTICATION_LINE[0] = f"{bot.email}:{bot.api_key}"
+    AUTHENTICATION_LINE[0] = f"{bot.email}:{api_keys.get_user_api_key(bot)}"
     return {}
 
 
@@ -521,5 +522,5 @@ def get_bot_storage_bot_auth() -> dict[str, object]:
 def remove_bot_storage_bot_auth() -> dict[str, object]:
     bot = helpers.example_user("default_bot")
     set_bot_storage(bot, [("foo", "bar")])
-    AUTHENTICATION_LINE[0] = f"{bot.email}:{bot.api_key}"
+    AUTHENTICATION_LINE[0] = f"{bot.email}:{api_keys.get_user_api_key(bot)}"
     return {}

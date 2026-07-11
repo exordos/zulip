@@ -488,7 +488,7 @@ class MessageMoveTopicTest(ZulipTestCase):
         # state + 1/user with a UserTopic row for the events data)
         # beyond what is typical were there not UserTopic records to
         # update. Ideally, we'd eliminate the per-user component.
-        with self.assert_database_query_count(25):
+        with self.assert_database_query_count(24):
             check_update_message(
                 user_profile=hamlet,
                 message_id=message_id,
@@ -585,7 +585,7 @@ class MessageMoveTopicTest(ZulipTestCase):
         set_topic_visibility_policy(desdemona, muted_topics, UserTopic.VisibilityPolicy.MUTED)
         set_topic_visibility_policy(cordelia, muted_topics, UserTopic.VisibilityPolicy.MUTED)
 
-        with self.assert_database_query_count(26):
+        with self.assert_database_query_count(25):
             check_update_message(
                 user_profile=desdemona,
                 message_id=message_id,
@@ -615,7 +615,7 @@ class MessageMoveTopicTest(ZulipTestCase):
         ]
         set_topic_visibility_policy(desdemona, muted_topics, UserTopic.VisibilityPolicy.MUTED)
         set_topic_visibility_policy(cordelia, muted_topics, UserTopic.VisibilityPolicy.MUTED)
-        with self.assert_database_query_count(32):
+        with self.assert_database_query_count(31):
             check_update_message(
                 user_profile=desdemona,
                 message_id=message_id,
@@ -648,7 +648,7 @@ class MessageMoveTopicTest(ZulipTestCase):
         set_topic_visibility_policy(desdemona, muted_topics, UserTopic.VisibilityPolicy.MUTED)
         set_topic_visibility_policy(cordelia, muted_topics, UserTopic.VisibilityPolicy.MUTED)
 
-        with self.assert_database_query_count(29):
+        with self.assert_database_query_count(28):
             check_update_message(
                 user_profile=desdemona,
                 message_id=message_id,
@@ -671,7 +671,7 @@ class MessageMoveTopicTest(ZulipTestCase):
         second_message_id = self.send_stream_message(
             hamlet, stream_name, topic_name="changed topic name", content="Second message"
         )
-        with self.assert_database_query_count(23):
+        with self.assert_database_query_count(22):
             check_update_message(
                 user_profile=desdemona,
                 message_id=second_message_id,
@@ -750,7 +750,7 @@ class MessageMoveTopicTest(ZulipTestCase):
             users_to_be_notified_via_muted_topics_event.append(user_topic.user_profile_id)
 
         change_all_topic_name = "Topic 1 edited"
-        with self.assert_database_query_count(30):
+        with self.assert_database_query_count(29):
             check_update_message(
                 user_profile=hamlet,
                 message_id=message_id,
@@ -2480,6 +2480,25 @@ class MessageMoveTopicTest(ZulipTestCase):
         )
         result = self.resolve_topic_containing_message(hamlet, target_message_id=message_id)
         self.assert_json_error(result, "General chat cannot be marked as resolved")
+
+    @override_settings(MESSAGE_CONTENT_ENCRYPTION_ENABLED=False)
+    def test_resolve_topic_with_message_encryption_disabled(self) -> None:
+        hamlet = self.example_user("hamlet")
+        topic_name = "topic to resolve"
+        resolved_topic_name = RESOLVED_TOPIC_PREFIX + topic_name
+        first_message_id = self.send_stream_message(hamlet, "Denmark", topic_name=topic_name)
+        second_message_id = self.send_stream_message(hamlet, "Denmark", topic_name=topic_name)
+
+        result = self.resolve_topic_containing_message(
+            hamlet,
+            target_message_id=first_message_id,
+        )
+
+        self.assert_json_success(result)
+        for message_id in (first_message_id, second_message_id):
+            message = Message.objects.get(id=message_id)
+            self.assertEqual(message.topic_name(), resolved_topic_name)
+            self.assertIsNotNone(message.edit_history)
 
     def test_resolved_topic_realm_level_permissions(self) -> None:
         self.login("iago")

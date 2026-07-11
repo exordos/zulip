@@ -5,6 +5,7 @@ from email.headerregistry import Address
 from django.contrib.auth.models import UserManager
 from django.utils.timezone import now as timezone_now
 
+from zerver.lib import api_keys
 from zerver.lib.i18n import get_default_language_for_new_user
 from zerver.lib.onboarding_steps import copy_onboarding_steps
 from zerver.lib.timezone import canonicalize_timezone
@@ -203,6 +204,10 @@ def create_user(
         force_date_joined=force_date_joined,
         email_address_visibility=user_email_address_visibility,
     )
+    api_key = user_profile.api_key
+    api_key_hash = api_keys.hash_api_key(api_key)
+    api_keys.write_api_key_to_storage(api_key, api_key_hash)
+    user_profile.api_key = api_key_hash
     if avatar_source is None:
         avatar_source = realm.default_avatar_source
     user_profile.avatar_source = avatar_source

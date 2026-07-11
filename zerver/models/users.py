@@ -1043,6 +1043,8 @@ def maybe_get_user_profile_by_api_key(api_key: str) -> UserProfile | None:
     try:
         return base_get_user_queryset().get(api_key=api_key_hash)
     except UserProfile.DoesNotExist:
+        if api_keys.is_api_key_hash(api_key):
+            return None
         try:
             user_profile = base_get_user_queryset().get(api_key=api_key)
         except UserProfile.DoesNotExist:

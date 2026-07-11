@@ -8,6 +8,7 @@ from django.http import HttpRequest
 from django.test import override_settings
 
 from zerver.actions.user_settings import do_change_user_setting
+from zerver.lib import api_keys
 from zerver.lib.initial_password import initial_password
 from zerver.lib.test_classes import ZulipTestCase
 from zerver.lib.test_helpers import get_test_image_file, ratelimit_rule
@@ -769,7 +770,8 @@ class UserChangesTest(ZulipTestCase):
         self.login_user(user)
         # Ensure the old API key is in the authentication cache, so
         # that the below logic can test whether we have a cache-flushing bug.
-        self.assertEqual(get_user_profile_by_api_key(user.api_key).email, email)
+        old_api_key = api_keys.get_user_api_key(user)
+        self.assertEqual(get_user_profile_by_api_key(old_api_key).email, email)
 
         # First verify this endpoint is not registered in the /json/... path
         # to prevent access with only a session.
@@ -781,17 +783,19 @@ class UserChangesTest(ZulipTestCase):
         result = self.client_post("/api/v1/users/me/api_key/regenerate")
         self.assertEqual(result.status_code, 401)
 
-        old_api_key = user.api_key
         result = self.api_post(user, "/api/v1/users/me/api_key/regenerate")
         new_api_key = self.assert_json_success(result)["api_key"]
         self.assertNotEqual(new_api_key, old_api_key)
         user = self.example_user("hamlet")
-        self.assertEqual(new_api_key, user.api_key)
+        self.assertTrue(api_keys.is_api_key_hash(user.api_key))
+        self.assertEqual(new_api_key, api_keys.get_user_api_key(user))
 
         with self.assertRaises(UserProfile.DoesNotExist):
             get_user_profile_by_api_key(old_api_key)
+        with self.assertRaises(UserProfile.DoesNotExist):
+            get_user_profile_by_api_key(user.api_key)
 
-        self.assertEqual(get_user_profile_by_api_key(user.api_key).email, email)
+        self.assertEqual(get_user_profile_by_api_key(new_api_key).email, email)
 
 
 class UserDraftSettingsTests(ZulipTestCase):

@@ -5,6 +5,7 @@ from typing import Any
 
 from bitfield import BitField
 from bitfield.types import Bit, BitHandler
+from django.conf import settings
 from django.contrib.postgres.indexes import GinIndex
 from django.contrib.postgres.search import SearchVectorField
 from django.db import models
@@ -32,6 +33,8 @@ _MessageT = typing.TypeVar("_MessageT", bound="AbstractMessage")
 
 class MessageQuerySet(QuerySet[_MessageT]):
     def _raise_on_sensitive_fields(self, fields: typing.Iterable[str]) -> None:
+        if not settings.MESSAGE_CONTENT_ENCRYPTION_ENABLED:
+            return
         if SENSITIVE_MESSAGE_FIELDS.intersection(fields):
             raise RuntimeError("Use message_encryption helpers to update message content fields.")
 

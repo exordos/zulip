@@ -14,6 +14,7 @@ from version import ZULIP_VERSION
 from zerver.actions.custom_profile_fields import try_add_realm_custom_profile_field
 from zerver.actions.streams import do_rename_stream
 from zerver.decorator import webhook_view
+from zerver.lib import api_keys
 from zerver.lib.exceptions import InvalidJSONError, JsonableError
 from zerver.lib.request import RequestNotes
 from zerver.lib.send_email import FromAddress
@@ -83,7 +84,7 @@ class WebhooksCommonTestCase(ZulipTestCase):
         webhook_bot_email = "webhook-bot@zulip.com"
         webhook_bot_realm = get_realm("zulip")
         webhook_bot = get_user(webhook_bot_email, webhook_bot_realm)
-        webhook_bot_api_key = webhook_bot.api_key
+        webhook_bot_api_key = api_keys.get_user_api_key(webhook_bot)
         request = HostRequestMock()
         request.POST["api_key"] = webhook_bot_api_key
         request.host = "zulip.testserver"

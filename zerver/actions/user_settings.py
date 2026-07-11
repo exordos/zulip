@@ -319,9 +319,9 @@ def do_change_tos_version(user_profile: UserProfile, tos_version: str | None) ->
 
 @transaction.atomic(durable=True)
 def do_regenerate_api_key(user_profile: UserProfile, acting_user: UserProfile) -> str:
-    old_api_key = user_profile.api_key
+    old_api_key_hash = api_keys.get_api_key_hash_for_storage(user_profile.api_key)
+    old_api_key = api_keys.get_user_api_key(user_profile)
     new_api_key = generate_api_key()
-    old_api_key_hash = api_keys.get_api_key_hash_for_storage(old_api_key)
     new_api_key_hash = api_keys.hash_api_key(new_api_key)
     api_keys.write_api_key_to_storage(new_api_key, new_api_key_hash)
     user_profile.api_key = new_api_key_hash
