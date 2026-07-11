@@ -26,6 +26,7 @@ from zerver.actions.realm_icon import do_change_icon_source
 from zerver.actions.realm_logo import do_change_logo_source
 from zerver.actions.realm_settings import do_change_realm_plan_type, do_set_realm_property
 from zerver.actions.user_settings import do_scrub_avatar_images
+from zerver.lib import api_keys
 from zerver.lib.attachments import validate_attachment_request
 from zerver.lib.avatar import (
     DEFAULT_AVATAR_FILE,
@@ -110,7 +111,7 @@ class FileUploadTest(UploadSerializeMixin, ZulipTestCase):
         response = self.client_get(url, {"api_key": "invalid"})
         self.assertEqual(response.status_code, 401)
 
-        response = self.client_get(url, {"api_key": user_profile.api_key})
+        response = self.client_get(url, {"api_key": api_keys.get_user_api_key(user_profile)})
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.getvalue(), b"zulip!")
 

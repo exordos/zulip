@@ -585,7 +585,7 @@ class MessageMoveTopicTest(ZulipTestCase):
         set_topic_visibility_policy(desdemona, muted_topics, UserTopic.VisibilityPolicy.MUTED)
         set_topic_visibility_policy(cordelia, muted_topics, UserTopic.VisibilityPolicy.MUTED)
 
-        with self.assert_database_query_count(26):
+        with self.assert_database_query_count(25):
             check_update_message(
                 user_profile=desdemona,
                 message_id=message_id,
