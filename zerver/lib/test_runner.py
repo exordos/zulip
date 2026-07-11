@@ -193,6 +193,14 @@ def create_test_databases(worker_id: int) -> None:
         connection.close()
 
 
+def initialize_test_api_key_storage() -> None:
+    from zerver.lib import api_keys
+    from zerver.models import UserProfile
+
+    for user_profile in UserProfile.objects.only("id", "api_key").iterator():
+        api_keys.ensure_api_key_storage(user_profile)
+
+
 def init_worker(
     counter: "multiprocessing.sharedctypes.Synchronized[int]",
     initial_settings: dict[str, Any] | None = None,
@@ -228,6 +236,7 @@ def init_worker(
     destroy_test_databases(_worker_id)
     create_test_databases(_worker_id)
     initialize_worker_path(_worker_id)
+    initialize_test_api_key_storage()
 
 
 class ParallelTestSuite(django_runner.ParallelTestSuite):
@@ -391,6 +400,7 @@ class Runner(DiscoverRunner):
             # We pass a _worker_id, which in this code path is always 0
             destroy_test_databases(_worker_id)
             create_test_databases(_worker_id)
+            initialize_test_api_key_storage()
 
         # We have to do the next line to avoid flaky scenarios where we
         # run a single test and getting an SA connection causes data from
