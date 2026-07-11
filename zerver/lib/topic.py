@@ -225,10 +225,13 @@ def update_messages_for_topic_edit(
     if message_edit_request.is_topic_edited:
         update_fields["subject"] = message_edit_request.target_topic_name
 
-    if not settings.MESSAGE_CONTENT_ENCRYPTION_ENABLED:
+    if not settings.MESSAGE_CONTENT_ENCRYPTION_ENABLED or not settings.ENCRYPT_ALL_MESSAGES:
+        message_ids = messages.values("id")
 
         def bulk_propagate() -> None:
-            messages.update(**update_fields)
+            # This queryset contains only channel messages. Selective encryption
+            # applies only to direct messages, so the raw bulk update is safe.
+            Message.raw_objects.filter(id__in=Subquery(message_ids)).update(**update_fields)
 
         return messages, bulk_propagate
 
